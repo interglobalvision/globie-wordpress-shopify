@@ -11,17 +11,20 @@ License URI:  https://www.gnu.org/licenses/gpl-2.0.html
 Text Domain:  igv
 */
 
-function igv_globie_wordpress_shopify_init() {
+function globie_wordpress_shopify_init() {
 
-  igv_globie_wordpress_shopify_register_product();
+  add_action( 'init', 'globie_wordpress_shopify_register_post_types' );
 
-  add_action( 'cmb2_admin_init', 'igv_globie_wordpress_shopify_register_options' );
+  add_action( 'wp_enqueue_scripts', 'globie_wordpress_shopify_enqueue_scripts' );
 
-  add_action( 'cmb2_init', 'igv_globie_wordpress_shopify_metaboxes' );
+  add_action( 'cmb2_admin_init', 'globie_wordpress_shopify_register_settings' );
+
+  add_action( 'cmb2_init', 'globie_wordpress_shopify_register_metaboxes' );
 
 }
 
-function igv_globie_wordpress_shopify_register_product() {
+function globie_wordpress_shopify_register_post_types() {
+
   $labels = array(
     'name' => _x( 'Products', 'product' ),
     'singular_name' => _x( 'Product', 'product' ),
@@ -58,7 +61,7 @@ function igv_globie_wordpress_shopify_register_product() {
   register_post_type( 'product', $args );
 }
 
-function igv_globie_wordpress_shopify_metaboxes() {
+function globie_wordpress_shopify_register_metaboxes() {
   /*if (!class_exists( 'cmb2_bootstrap_202' )) {
     return new WP_Error( 'globie_wordpress_shopify_need_cmb2', __( "globie_wordpress_shopify depends on cmb2. please require it first.", "igv" ) );
   }*/
@@ -87,16 +90,16 @@ function igv_globie_wordpress_shopify_metaboxes() {
 
 }
 
-function igv_globie_wordpress_shopify_register_options() {
+function globie_wordpress_shopify_register_settings() {
 
   $prefix = '_igv_';
 
 	$shop_options = new_cmb2_box( array(
-		'id'           => $prefix . 'option_metabox',
+		'id'           => $prefix . 'shopify_options_metabox',
 		'title'        => esc_html__( 'Shopify Config', 'igv' ),
 		'object_types' => array( 'options-page' ),
-		'option_key'      => $prefix . 'shopify_options', // The option key and admin menu page slug.
-		'icon_url'        => 'dashicons-products', // Menu icon. Only applicable if 'parent_slug' is left empty.
+		'option_key'   => 'shopify_config', // The option key and admin menu page slug.
+		'icon_url'     => 'dashicons-products', // Menu icon. Only applicable if 'parent_slug' is left empty.
 	) );
 
 	$shop_options->add_field( array(
@@ -114,6 +117,40 @@ function igv_globie_wordpress_shopify_register_options() {
 
 }
 
-igv_globie_wordpress_shopify_init();
+function globie_wordpress_shopify_enqueue_scripts() {
+  $shop_scripts = plugin_dir_url( __FILE__ ) . 'dist/js/main.js';
+
+  wp_register_script( 'globie_wordpress_shopify_scripts', $shop_scripts );
+
+  $shopify_domain = globie_wordpress_shopify_get_option('_igv_shopify_domain');
+  $shopify_token = globie_wordpress_shopify_get_option('_igv_shopify_token');
+
+  $javascriptVars = array(
+    'domain' => !empty($shopify_domain) ? $shopify_domain : null,
+    'storefrontAccessToken' => !empty($shopify_token) ? $shopify_token : null
+  );
+
+  wp_localize_script( 'globie_wordpress_shopify_scripts', 'Shopify', $javascriptVars );
+  wp_enqueue_script( 'globie_wordpress_shopify_scripts', $shop_scripts,'','',true);
+
+}
+
+function globie_wordpress_shopify_get_option( $key = '', $default = false ) {
+  if ( function_exists( 'cmb2_get_option' ) ) {
+    // Use cmb2_get_option as it passes through some key filters.
+    return cmb2_get_option( 'shopify_config', $key, $default );
+  }
+  // Fallback to get_option if CMB2 is not loaded yet.
+  $opts = get_option( 'shopify_config', $default );
+  $val = $default;
+  if ( 'all' == $key ) {
+    $val = $opts;
+  } elseif ( is_array( $opts ) && array_key_exists( $key, $opts ) && false !== $opts[ $key ] ) {
+    $val = $opts[ $key ];
+  }
+  return $val;
+}
+
+globie_wordpress_shopify_init();
 
 ?>
