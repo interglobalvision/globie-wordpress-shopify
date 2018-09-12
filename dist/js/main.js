@@ -146,10 +146,16 @@ Shop = function () {
         console.log(error);
       });
 
-    } }, { key: 'setProductAvailability', value: function setProductAvailability(
+    }
 
+    /**
+       * Assign boolean value to data-available attribute.
+       * True if at least one product variant is available.
+       * @param {string} element - The product element in DOM
+       * @param {array} variants - Product variants returned from Shopify API
+       */ }, { key: 'setProductAvailability', value: function setProductAvailability(
     element, variants) {
-      var productAvailable = false;
+      var productAvailable = false; // assume falseyness to start
 
       if (variants) {
         $.each(variants, function (i, val) {
@@ -161,7 +167,9 @@ Shop = function () {
           }
         });
       }
+      // if no variants, we assume product is unavailable
 
+      // assign attribute value
       $(element).attr('data-available', productAvailable);
     }
 

@@ -78,20 +78,28 @@ class Shop {
 
   }
 
+  /**
+   * Assign boolean value to data-available attribute.
+   * True if at least one product variant is available.
+   * @param {string} element - The product element in DOM
+   * @param {array} variants - Product variants returned from Shopify API
+   */
   setProductAvailability(element, variants) {
-    let productAvailable = false;
+    let productAvailable = false; // assume falseyness to start
 
     if (variants) {
       $.each(variants, function(i, val) {
         if (val.available) {
           // found an available variant
           productAvailable = true;
-          
+
           return false; // break $.each loop
         }
       });
     }
+    // if no variants, we assume product is unavailable
 
+    // assign attribute value
     $(element).attr('data-available', productAvailable);
   }
 
