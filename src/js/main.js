@@ -1,11 +1,13 @@
 /* jshint esversion: 6, browser: true, devel: true, indent: 2, curly: true, eqeqeq: true, futurehostile: true, latedef: true, undef: true, unused: true */
-/* global $, document, WP */
+/* global $, document, Shopify */
 import Client from 'shopify-buy';
 import Cookies from 'js-cookie';
 
 class Shop {
   constructor() {
     this.mobileThreshold = 601;
+
+    this.fetchProductMeta = this.fetchProductMeta.bind(this);
 
     $(window)
       .resize(this.onResize.bind(this)) // Bind resize
@@ -18,9 +20,10 @@ class Shop {
   }
 
   onReady() {
+
     // Check shopify api data
-    if(WP.shopify.domain !== null && WP.shopify.storefrontAccessToken !== null) {
-      const { domain, storefrontAccessToken } = WP.shopify;
+    if(Shopify.domain !== null && Shopify.storefrontAccessToken !== null) {
+      const { domain, storefrontAccessToken } = Shopify;
 
       // Init Shopify client
       this.client = Client.buildClient({
@@ -30,24 +33,66 @@ class Shop {
 
       this.initCheckout();
 
-      if ($('.single-product').length) { // Single product page
-        this.initSingleProduct();
+      if ($('.post-type-archive-product').length) { // Archive products page
+        this.initShopProducts();
       }
 
+      if ($('.single-product').length) { // Single product page
+        //this.initSingleProduct();
+      }
+
+      /*
       if ($('#cart').length) { // Cart is present
         this.bindCartToggle();
         this.initCartSection();
       }
+      */
 
     } else {
       console.error('Shopify URL and/or token missing');
     }
   }
 
-  bindCartToggle() {
-    $('.js-cart-toggle').on('click', () => {
-      $('#cart').toggleClass('active');
-    });
+  initShopProducts() {
+    $('.shop-product').each(this.fetchProductMeta);
+  }
+
+  fetchProductMeta(index, element) {
+    const productHandle = $(element).attr('data-shopify-handle');
+
+    if (!productHandle) {
+      this.setProductAvailability(element);
+      return;
+    }
+
+    // Fetch data from shopify. Returns a promise
+    this.client.product.fetchByHandle(productHandle)
+      .then(data => {
+        console.log(data);
+
+        this.setProductAvailability(element, data.variants);
+      })
+      .catch( error => {
+        console.log(error);
+      });
+
+  }
+
+  setProductAvailability(element, variants) {
+    let productAvailable = false;
+
+    if (variants) {
+      $.each(variants, function(i, val) {
+        if (val.available) {
+          // found an available variant
+          productAvailable = true;
+          
+          return false; // break $.each loop
+        }
+      });
+    }
+
+    $(element).attr('data-available', productAvailable);
   }
 
   /**
@@ -97,7 +142,6 @@ class Shop {
     }
   }
 
-
   initSingleProduct() {
     this.productHandle = $('#shopify-handle').attr('data-shopify-handle');
 
@@ -121,6 +165,7 @@ class Shop {
    * Fetch a product data from shopiy
    * @param {string} productHandle - The product handle
    */
+  /*
   fetchProductMeta(productHandle) {
     // Fetch data from shopify. Returns a promise
     this.client.product.fetchByHandle(productHandle)
@@ -150,6 +195,7 @@ class Shop {
         console.log(error);
       });
   }
+  */
 
   /**
    * Update cart

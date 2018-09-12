@@ -69,13 +69,15 @@
 
 "use strict";
 var _createClass = function () {function defineProperties(target, props) {for (var i = 0; i < props.length; i++) {var descriptor = props[i];descriptor.enumerable = descriptor.enumerable || false;descriptor.configurable = true;if ("value" in descriptor) descriptor.writable = true;Object.defineProperty(target, descriptor.key, descriptor);}}return function (Constructor, protoProps, staticProps) {if (protoProps) defineProperties(Constructor.prototype, protoProps);if (staticProps) defineProperties(Constructor, staticProps);return Constructor;};}(); /* jshint esversion: 6, browser: true, devel: true, indent: 2, curly: true, eqeqeq: true, futurehostile: true, latedef: true, undef: true, unused: true */
-/* global $, document, WP */
+/* global $, document, Shopify */
 var _shopifyBuy = __webpack_require__(1);var _shopifyBuy2 = _interopRequireDefault(_shopifyBuy);
 var _jsCookie = __webpack_require__(2);var _jsCookie2 = _interopRequireDefault(_jsCookie);function _interopRequireDefault(obj) {return obj && obj.__esModule ? obj : { default: obj };}function _classCallCheck(instance, Constructor) {if (!(instance instanceof Constructor)) {throw new TypeError("Cannot call a class as a function");}}var
 
 Shop = function () {
   function Shop() {_classCallCheck(this, Shop);
     this.mobileThreshold = 601;
+
+    this.fetchProductMeta = this.fetchProductMeta.bind(this);
 
     $(window).
     resize(this.onResize.bind(this)) // Bind resize
@@ -88,9 +90,10 @@ Shop = function () {
     } }, { key: 'onReady', value: function onReady()
 
     {
+
       // Check shopify api data
-      if (WP.shopify.domain !== null && WP.shopify.storefrontAccessToken !== null) {var _WP$shopify =
-        WP.shopify,domain = _WP$shopify.domain,storefrontAccessToken = _WP$shopify.storefrontAccessToken;
+      if (Shopify.domain !== null && Shopify.storefrontAccessToken !== null) {var _Shopify =
+        Shopify,domain = _Shopify.domain,storefrontAccessToken = _Shopify.storefrontAccessToken;
 
         // Init Shopify client
         this.client = _shopifyBuy2.default.buildClient({
@@ -100,30 +103,72 @@ Shop = function () {
 
         this.initCheckout();
 
-        if ($('.single-product').length) {// Single product page
-          this.initSingleProduct();
+        if ($('.post-type-archive-product').length) {// Archive products page
+          this.initShopProducts();
         }
 
-        if ($('#cart').length) {// Cart is present
+        if ($('.single-product').length) {
+
+        } // Single product page
+        //this.initSingleProduct();
+        /*
+        if ($('#cart').length) { // Cart is present
           this.bindCartToggle();
           this.initCartSection();
         }
+        */
 
       } else {
         console.error('Shopify URL and/or token missing');
       }
-    } }, { key: 'bindCartToggle', value: function bindCartToggle()
+    } }, { key: 'initShopProducts', value: function initShopProducts()
 
     {
-      $('.js-cart-toggle').on('click', function () {
-        $('#cart').toggleClass('active');
+      $('.shop-product').each(this.fetchProductMeta);
+    } }, { key: 'fetchProductMeta', value: function fetchProductMeta(
+
+    index, element) {var _this = this;
+      var productHandle = $(element).attr('data-shopify-handle');
+
+      if (!productHandle) {
+        this.setProductAvailability(element);
+        return;
+      }
+
+      // Fetch data from shopify. Returns a promise
+      this.client.product.fetchByHandle(productHandle).
+      then(function (data) {
+        console.log(data);
+
+        _this.setProductAvailability(element, data.variants);
+      }).
+      catch(function (error) {
+        console.log(error);
       });
+
+    } }, { key: 'setProductAvailability', value: function setProductAvailability(
+
+    element, variants) {
+      var productAvailable = false;
+
+      if (variants) {
+        $.each(variants, function (i, val) {
+          if (val.available) {
+            // found an available variant
+            productAvailable = true;
+
+            return false; // break $.each loop
+          }
+        });
+      }
+
+      $(element).attr('data-available', productAvailable);
     }
 
     /**
        * Init the Shopify checkout, current or new
        */ }, { key: 'initCheckout', value: function initCheckout()
-    {var _this = this;
+    {var _this2 = this;
 
       // Get cart link DOM elements
       this.$cartCounter = $('#cart-counter');
@@ -141,10 +186,10 @@ Shop = function () {
           // console.log('EXISTING CHECKOUT', checkout);
 
           // Save the checkout in object
-          _this.checkout = checkout;
+          _this2.checkout = checkout;
 
           // Update cart display
-          _this.updateCart(checkout);
+          _this2.updateCart(checkout);
 
         }).catch(function (error) {
           console.log(error);
@@ -159,14 +204,13 @@ Shop = function () {
           // console.log('EMPTY CHECKOUT CREATED', checkout);
 
           // Save checkout in object
-          _this.checkout = checkout;
+          _this2.checkout = checkout;
 
           // Save the shopifyCheckoutId in a cookie
           _jsCookie2.default.set('shopifyCheckoutId', checkout.id, { expires: 7 }); // Expires in 7 days
         });
       }
     } }, { key: 'initSingleProduct', value: function initSingleProduct()
-
 
     {
       this.productHandle = $('#shopify-handle').attr('data-shopify-handle');
@@ -190,41 +234,43 @@ Shop = function () {
     /**
        * Fetch a product data from shopiy
        * @param {string} productHandle - The product handle
-       */ }, { key: 'fetchProductMeta', value: function fetchProductMeta(
-    productHandle) {var _this2 = this;
-      // Fetch data from shopify. Returns a promise
-      this.client.product.fetchByHandle(productHandle).
-      then(function (product) {
+       */
+    /*
+          fetchProductMeta(productHandle) {
+            // Fetch data from shopify. Returns a promise
+            this.client.product.fetchByHandle(productHandle)
+              .then(product => {
+                 // Get DOM elements
+                this.$price = $('.single-product-price');
+                this.$quantitySelect = $('#quantity');
+                this.$quantityLabel = $('#quantity-select-label');
+                this.$variationSelect = $('#variation-select');
+                this.$variationLabel = $('#variation-select-label');
+                 // Display price
+                this.showPrice(product, this.$price);
+                 // Generate variation selector
+                this.generateOptions(product);
+                 // Bind functions
+                this.handleAddToCart = this.handleAddToCart.bind(this, product);
+                 // Bind AddToCart button
+                $('.add-to-cart').on('click', this.handleAddToCart);
+               })
+              .catch( error => {
+                console.log(error);
+              });
+          }
+          */
 
-        // Get DOM elements
-        _this2.$price = $('.single-product-price');
-        _this2.$quantitySelect = $('#quantity');
-        _this2.$quantityLabel = $('#quantity-select-label');
-        _this2.$variationSelect = $('#variation-select');
-        _this2.$variationLabel = $('#variation-select-label');
 
-        // Display price
-        _this2.showPrice(product, _this2.$price);
 
-        // Generate variation selector
-        _this2.generateOptions(product);
 
-        // Bind functions
-        _this2.handleAddToCart = _this2.handleAddToCart.bind(_this2, product);
 
-        // Bind AddToCart button
-        $('.add-to-cart').on('click', _this2.handleAddToCart);
 
-      }).
-      catch(function (error) {
-        console.log(error);
-      });
-    }
 
     /**
-       * Update cart
-       * @param {object} checkout - The updated shopify checkout object
-       */ }, { key: 'updateCart', value: function updateCart(
+              * Update cart
+              * @param {object} checkout - The updated shopify checkout object
+              */ }, { key: 'updateCart', value: function updateCart(
     checkout) {var
       lineItems = checkout.lineItems,webUrl = checkout.webUrl,subtotalPrice = checkout.subtotalPrice;
 
