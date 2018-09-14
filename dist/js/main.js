@@ -80,10 +80,12 @@ GWS = function () {
     this.fetchProductMeta = this.fetchProductMeta.bind(this);
 
     this.$cartCounter = $('.gws-cart-counter');
-    this.$cart = $('#gws-cart');
+
     this.$product = $('.gws-product');
-    this.$addToCartButton = $('.gws-add-button');
-    this.$removeItem = $('.gws-remove-item');
+    this.$addToCartButton = $('.gws-product-add');
+
+    this.$cart = $('.gws-cart');
+    this.$removeItem = $('.gws-cart-remove');
 
     this.checkoutIdCookieKey = 'gwsCheckoutId';
     this.variantIdInputClass = '.gws-variant-id';
