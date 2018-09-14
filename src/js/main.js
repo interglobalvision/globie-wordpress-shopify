@@ -3,11 +3,25 @@
 import Client from 'shopify-buy';
 import Cookies from 'js-cookie';
 
-class Shop {
+class GWS {
   constructor() {
     this.mobileThreshold = 601;
 
     this.fetchProductMeta = this.fetchProductMeta.bind(this);
+
+    this.$cartCounter = $('.gws-cart-counter');
+    this.$cart = $('#gws-cart');
+    this.$product = $('.gws-product');
+    this.$addToCartButton = $('.gws-add-button');
+    this.$removeItem = $('.gws-remove-item');
+
+    this.checkoutIdCookieKey = 'gwsCheckoutId';
+    this.variantIdInputClass = '.gws-variant-id';
+    this.priceWrapperClass = '.gws-product-price';
+    this.quantitySelectClass = '.gws-quantity-select';
+    this.variantSelectClass = '.gws-variant-select';
+    this.productHandleAttr = 'data-gws-product-handle';
+    this.productAvailableAttr = 'data-gws-available';
 
     $(window)
       .resize(this.onResize.bind(this)) // Bind resize
@@ -33,86 +47,30 @@ class Shop {
 
       this.initCheckout();
 
-      if ($('.post-type-archive-product').length) { // Archive products page
-        this.initShopProducts();
+      if (this.$product.length) { // Archive products page
+        this.initProducts();
       }
 
-      if ($('.single-product').length) { // Single product page
-        //this.initSingleProduct();
-      }
-
-      /*
-      if ($('#cart').length) { // Cart is present
+      if (this.$cart.length) { // Cart is present
         this.bindCartToggle();
         this.initCartSection();
       }
-      */
 
     } else {
       console.error('Shopify URL and/or token missing');
     }
   }
 
-  initShopProducts() {
-    $('.shop-product').each(this.fetchProductMeta);
-  }
-
-  fetchProductMeta(index, element) {
-    const productHandle = $(element).attr('data-shopify-handle');
-
-    if (!productHandle) {
-      this.setProductAvailability(element);
-      return;
-    }
-
-    // Fetch data from shopify. Returns a promise
-    this.client.product.fetchByHandle(productHandle)
-      .then(data => {
-        console.log(data);
-
-        this.setProductAvailability(element, data.variants);
-      })
-      .catch( error => {
-        console.log(error);
-      });
-
-  }
-
-  /**
-   * Assign boolean value to data-available attribute.
-   * True if at least one product variant is available.
-   * @param {string} element - The product element in DOM
-   * @param {array} variants - Product variants returned from Shopify API
-   */
-  setProductAvailability(element, variants) {
-    let productAvailable = false; // assume falseyness to start
-
-    if (variants) {
-      $.each(variants, function(i, val) {
-        if (val.available) {
-          // found an available variant
-          productAvailable = true;
-
-          return false; // break $.each loop
-        }
-      });
-    }
-    // if no variants, we assume product is unavailable
-
-    // assign attribute value
-    $(element).attr('data-available', productAvailable);
+  initProducts() {
+    this.$product.each(this.fetchProductMeta);
   }
 
   /**
    * Init the Shopify checkout, current or new
    */
   initCheckout() {
-
-    // Get cart link DOM elements
-    this.$cartCounter = $('#cart-counter');
-
     // Get shopifyCheckoutId from cookies
-    const checkoutId = Cookies.get('shopifyCheckoutId');
+    const checkoutId = Cookies.get(this.checkoutIdCookieKey);
 
     // If shopifyCheckoutId already exists (means there was already a cart initiated before)
     if (checkoutId) {
@@ -145,117 +103,49 @@ class Shop {
           this.checkout = checkout;
 
           // Save the shopifyCheckoutId in a cookie
-          Cookies.set('shopifyCheckoutId', checkout.id, { expires: 7 }); // Expires in 7 days
+          Cookies.set(this.checkoutIdCookieKey, checkout.id, { expires: 7 }); // Expires in 7 days
         });
     }
   }
 
-  initSingleProduct() {
-    this.productHandle = $('#shopify-handle').attr('data-shopify-handle');
+  fetchProductMeta(index, element) {
+    const productHandle = $(element).attr(this.productHandleAttr);
 
-    if (this.productHandle) {
-      this.fetchProductMeta(this.productHandle);
+    if (!productHandle) {
+      this.setProductAvailability(element);
+      return;
     }
-  }
 
-  initCartSection() {
-    // Get DOM elements
-    this.$itemsContainer = $('#items-container');
-    this.$checkoutContainer = $('#checkout-container');
-    this.$subtotalContainer = $('#subtotal-container');
-
-    // Bind functions
-    this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
-    this.handleRemoveItems = this.handleRemoveItems.bind(this); // Bind remove item button
-  }
-
-  /**
-   * Fetch a product data from shopiy
-   * @param {string} productHandle - The product handle
-   */
-  /*
-  fetchProductMeta(productHandle) {
     // Fetch data from shopify. Returns a promise
     this.client.product.fetchByHandle(productHandle)
       .then(product => {
+        const productAvailable = this.setProductAvailability(element, product.variants);
 
-        // Get DOM elements
-        this.$price = $('.single-product-price');
-        this.$quantitySelect = $('#quantity');
-        this.$quantityLabel = $('#quantity-select-label');
-        this.$variationSelect = $('#variation-select');
-        this.$variationLabel = $('#variation-select-label');
-
-        // Display price
-        this.showPrice(product, this.$price);
+        if (productAvailable) {
+          this.updateProductVariant(element, product.variants[0]);
+        }
 
         // Generate variation selector
-        this.generateOptions(product);
+        if (product.variants.length > 1) {
+          this.generateOptions(element, product.variants);
+        }
 
         // Bind functions
-        this.handleAddToCart = this.handleAddToCart.bind(this, product);
+        //this.handleAddToCart = this.handleAddToCart.bind(this, element, product.variants);
 
-        // Bind AddToCart button
-        $('.add-to-cart').on('click', this.handleAddToCart);
-
+        this.$addToCartButton.on('click', this.handleAddToCart.bind(this, element, product.variants));
       })
       .catch( error => {
         console.log(error);
       });
-  }
-  */
 
-  /**
-   * Update cart
-   * @param {object} checkout - The updated shopify checkout object
-   */
-  updateCart(checkout) {
-    const { lineItems, webUrl, subtotalPrice } = checkout;
-
-    // Update cart items in header
-    this.$cartCounter.html(lineItems.length);
-
-    // Update page Cart content
-    if ($('#cart').length) {
-      this.clearCartMarkup();
-
-      if (lineItems.length > 0) {
-        this.generateCartItemsRow(lineItems);
-        this.bindCartInputs(lineItems);
-        this.generateCheckout(webUrl);
-        this.generateSubtotal();
-        this.updateSubtotal(subtotalPrice);
-
-        this.$removeItem = $('.remove-item');
-        this.bindRemoveItems();
-      }
-    }
-  }
-
-  /**
-   * Clear HTML from Cart to prepare for update
-   */
-  clearCartMarkup() {
-    this.$itemsContainer.html('');
-    this.$subtotalContainer.html('');
-    this.$checkoutContainer.html('');
-  }
-
-  /**
-   * Show price in an DOM element
-   * @param {object} product - Shopify product object
-   * @param {object} $element - jQuery DOM object to update
-   */
-  showPrice(product, $element) {
-    // Update the element with the price of the first variant
-    $element.html('$ ' + product.attrs.variants[0].price);
   }
 
   /**
    * Add item to Cart
    */
-  handleAddToCart(product) {
-    const itemsToAdd = this.getQuantityAndVariant(product);
+  handleAddToCart(element, variants) {
+    const itemsToAdd = this.getQuantityAndVariant(element, variants);
 
     if (itemsToAdd.variantId) {
 
@@ -274,6 +164,197 @@ class Shop {
     } else {
       $('#out-of-stock').addClass('show');
     }
+
+    // Prevent default form submit
+    return false;
+  }
+
+  /**
+   * Assign boolean value to data-available attribute.
+   * True if at least one product variant is available.
+   * @param {string} element - The product element in DOM
+   * @param {array} variants - Product variants returned from Shopify API
+   */
+  setProductAvailability(element, variants) {
+    let productAvailable = false; // assume falseyness to start
+
+    if (variants) {
+      $.each(variants, function(i, val) {
+        if (val.available) {
+          // found an available variant
+          productAvailable = true;
+
+          return false; // break $.each loop
+        }
+      });
+    }
+    // if no variants, we assume product is unavailable
+
+    // assign attribute value
+    $(element).attr(this.productAvailableAttr, productAvailable);
+
+    return productAvailable;
+  }
+
+  updateProductVariant(element, variant) {
+    const $priceWrapper = $(element).find(this.priceWrapperClass);
+    const $variantIdInput = $(element).find(this.variantIdInputClass);
+
+    if (variant) {
+      if ($priceWrapper.length) {
+        this.setVariantPrice($priceWrapper, variant);
+      }
+      if ($variantIdInput.length) {
+        this.setVariantId($variantIdInput, variant);
+      }
+    }
+  }
+
+  setVariantPrice($priceWrapper, variant) {
+    const price = variant.compareAtPrice ? variant.compareAtPrice : variant.price;
+
+    $priceWrapper.html(price);
+  }
+
+  setVariantId($variantIdInput, variant) {
+    $variantIdInput.val(variant.id);
+  }
+
+  getQuantityAndVariant(element, variants) {
+    const variantId = this.getVariantId(element, variants);
+
+    const $quantitySelect = $(element).find(this.quantitySelectClass);
+    const quantity = $quantitySelect.length ? parseInt($quantitySelect.val()) : 1;
+
+    // Has to be an array
+    return({
+      variantId,
+      quantity,
+    });
+  }
+
+  generateOptions(product) {
+    product.options.map( option => {
+      let hidden = '';
+
+      if (option.name === 'Title') {
+        hidden = 'u-hidden';
+      }
+
+      let optionHtml = `
+      <div class="grid-item item-s-12 no-gutter grid-row margin-bottom-basic align-items-center ${hidden}">
+        <div class="grid-item item-s-6 text-align-right">
+          <label for="option-${option.name}" class="font-uppercase font-size-small">${option.name}</label>
+        </div>
+        <div class="grid-item item-s-6">
+          <select id="option-${option.name}" class="gws-variant-select font-uppercase">`;
+
+      option.values.map( option => {
+        optionHtml += `<option value=\"${option.value}\">${option.value}</option>`;
+      });
+
+      optionHtml += `
+          </select>
+        </div>
+      </div>`;
+
+      $('#product-options').append(optionHtml);
+    });
+  }
+
+  getVariantId(element, variants) {
+    if (variants.length === 1) {
+      return variants[0].id;
+    }
+
+    // Map values of form select inputs to array
+    const selectedOptions = $(element).find(this.variantSelectClass).map((index, elem) => {
+      return $(elem).val();
+    });
+
+    // Set defaults for variant search
+    let matchFound = false;
+    let variantId = false;
+
+    // Loop through product variants
+    // example: Small/White, Medium/White, Small/Black, ...
+    for (let i = 0; i < variants.length; i++) {
+      let variantOptions = variants[i].selectedOptions;
+      variantId = variants[i].id;
+
+      // initiate selectedOptions counter
+      let v = 0;
+
+      // Loop through options of each variant
+      // example: Small, White
+      for (let j = 0; j < variantOptions.length; j++) {
+
+        // Loop through values retrieved from form select inputs.
+        // See if they correspond to this variant's options
+        for (let k = 0; k < selectedOptions.length; k++) {
+
+          // TRUE if this variant option matches the selected option
+          matchFound = variantOptions[j].value === selectedOptions[v];
+
+          if (matchFound) {
+            // If this is the last selected option
+            // and match found is still true
+            if (v === (selectedOptions.length - 1)) {
+              return variantId;
+            }
+
+            // Otherwise just iterate to next selected option
+            v++;
+          }
+        }
+      }
+    }
+  }
+
+  initCartSection() {
+    // Get DOM elements
+    this.$itemsContainer = $('#items-container');
+    this.$checkoutContainer = $('#checkout-container');
+    this.$subtotalContainer = $('#subtotal-container');
+
+    // Bind functions
+    this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
+    this.handleRemoveItems = this.handleRemoveItems.bind(this); // Bind remove item button
+  }
+
+  /**
+   * Update cart
+   * @param {object} checkout - The updated shopify checkout object
+   */
+  updateCart(checkout) {
+    const { lineItems, webUrl, subtotalPrice } = checkout;
+
+    // Update cart items in header
+    this.$cartCounter.html(lineItems.length);
+
+    // Update page Cart content
+    if (this.$cart.length) {
+      this.clearCartMarkup();
+
+      if (lineItems.length > 0) {
+        this.generateCartItemsRow(lineItems);
+        this.bindCartInputs(lineItems);
+        this.generateCheckout(webUrl);
+        this.generateSubtotal();
+        this.updateSubtotal(subtotalPrice);
+
+        this.bindRemoveItems();
+      }
+    }
+  }
+
+  /**
+   * Clear HTML from Cart to prepare for update
+   */
+  clearCartMarkup() {
+    this.$itemsContainer.html('');
+    this.$subtotalContainer.html('');
+    this.$checkoutContainer.html('');
   }
 
   /*
@@ -365,35 +446,6 @@ class Shop {
     });
   }
 
-  generateOptions(product) {
-    product.options.map( option => {
-      let hidden = '';
-
-      if (option.name === 'Title') {
-        hidden = 'u-hidden';
-      }
-
-      let optionHtml = `
-      <div class="grid-item item-s-12 no-gutter grid-row margin-bottom-basic align-items-center ${hidden}">
-        <div class="grid-item item-s-6 text-align-right">
-          <label for="option-${option.name}" class="font-uppercase font-size-small">${option.name}</label>
-        </div>
-        <div class="grid-item item-s-6">
-          <select id="option-${option.name}" class="product-variant-select font-uppercase">`;
-
-      option.values.map( option => {
-        optionHtml += `<option value=\"${option.value}\">${option.value}</option>`;
-      });
-
-      optionHtml += `
-          </select>
-        </div>
-      </div>`;
-
-      $('#product-options').append(optionHtml);
-    });
-  }
-
   bindRemoveItems() {
     this.$removeItem.on('click', this.handleRemoveItems);
   }
@@ -406,64 +458,6 @@ class Shop {
     });
   }
 
-  getVariantId(product) {
-    // Map values of form select inputs to array
-    const selectedOptions = $('.product-variant-select').map((index, elem) => {
-      return $(elem).val();
-    });
-
-    const variants = product.variants;
-
-    // Set defaults for variant search
-    let matchFound = false;
-    let variantId = false;
-
-    // Loop through product variants
-    // example: Small/White, Medium/White, Small/Black, ...
-    for (let i = 0; i < variants.length; i++) {
-      let variantOptions = variants[i].selectedOptions;
-      variantId = variants[i].id;
-
-      // initiate selectedOptions counter
-      let v = 0;
-
-      // Loop through options of each variant
-      // example: Small, White
-      for (let j = 0; j < variantOptions.length; j++) {
-
-        // Loop through values retrieved from form select inputs.
-        // See if they correspond to this variant's options
-        for (let k = 0; k < selectedOptions.length; k++) {
-
-          // TRUE if this variant option matches the selected option
-          matchFound = variantOptions[j].value === selectedOptions[v];
-
-          if (matchFound) {
-            // If this is the last selected option
-            // and match found is still true
-            if (v === (selectedOptions.length - 1)) {
-              return variantId;
-            }
-
-            // Otherwise just iterate to next selected option
-            v++;
-          }
-        }
-      }
-    }
-  }
-
-  getQuantityAndVariant(product) {
-    const variantId = this.getVariantId(product);
-    const quantity = parseInt(this.$quantitySelect.val());
-
-    // Has to be an array
-    return({
-      variantId,
-      quantity,
-    });
-  }
-
 }
 
-new Shop();
+new GWS();

@@ -73,18 +73,32 @@ var _createClass = function () {function defineProperties(target, props) {for (v
 var _shopifyBuy = __webpack_require__(1);var _shopifyBuy2 = _interopRequireDefault(_shopifyBuy);
 var _jsCookie = __webpack_require__(2);var _jsCookie2 = _interopRequireDefault(_jsCookie);function _interopRequireDefault(obj) {return obj && obj.__esModule ? obj : { default: obj };}function _classCallCheck(instance, Constructor) {if (!(instance instanceof Constructor)) {throw new TypeError("Cannot call a class as a function");}}var
 
-Shop = function () {
-  function Shop() {_classCallCheck(this, Shop);
+GWS = function () {
+  function GWS() {_classCallCheck(this, GWS);
     this.mobileThreshold = 601;
 
     this.fetchProductMeta = this.fetchProductMeta.bind(this);
+
+    this.$cartCounter = $('.gws-cart-counter');
+    this.$cart = $('#gws-cart');
+    this.$product = $('.gws-product');
+    this.$addToCartButton = $('.gws-add-button');
+    this.$removeItem = $('.gws-remove-item');
+
+    this.checkoutIdCookieKey = 'gwsCheckoutId';
+    this.variantIdInputClass = '.gws-variant-id';
+    this.priceWrapperClass = '.gws-product-price';
+    this.quantitySelectClass = '.gws-quantity-select';
+    this.variantSelectClass = '.gws-variant-select';
+    this.productHandleAttr = 'data-gws-product-handle';
+    this.productAvailableAttr = 'data-gws-available';
 
     $(window).
     resize(this.onResize.bind(this)) // Bind resize
     .on('ajaxySuccess', this.onReady.bind(this)); // Bind ajaxSuccess (custom event, comes from Ajaxy)
 
     $(document).ready(this.onReady.bind(this));
-  }_createClass(Shop, [{ key: 'onResize', value: function onResize()
+  }_createClass(GWS, [{ key: 'onResize', value: function onResize()
 
     {
     } }, { key: 'onReady', value: function onReady()
@@ -103,32 +117,69 @@ Shop = function () {
 
         this.initCheckout();
 
-        if ($('.post-type-archive-product').length) {// Archive products page
-          this.initShopProducts();
+        if (this.$product.length) {// Archive products page
+          this.initProducts();
         }
 
-        if ($('.single-product').length) {
-
-        } // Single product page
-        //this.initSingleProduct();
-        /*
-        if ($('#cart').length) { // Cart is present
+        if (this.$cart.length) {// Cart is present
           this.bindCartToggle();
           this.initCartSection();
         }
-        */
 
       } else {
         console.error('Shopify URL and/or token missing');
       }
-    } }, { key: 'initShopProducts', value: function initShopProducts()
+    } }, { key: 'initProducts', value: function initProducts()
 
     {
-      $('.shop-product').each(this.fetchProductMeta);
+      this.$product.each(this.fetchProductMeta);
+    }
+
+    /**
+       * Init the Shopify checkout, current or new
+       */ }, { key: 'initCheckout', value: function initCheckout()
+    {var _this = this;
+      // Get shopifyCheckoutId from cookies
+      var checkoutId = _jsCookie2.default.get(this.checkoutIdCookieKey);
+
+      // If shopifyCheckoutId already exists (means there was already a cart initiated before)
+      if (checkoutId) {
+
+        // Fetch existing checkout by its checkoutId
+        this.client.checkout.fetch(checkoutId).
+        then(function (checkout) {
+          // Do something with the checkout
+          // console.log('EXISTING CHECKOUT', checkout);
+
+          // Save the checkout in object
+          _this.checkout = checkout;
+
+          // Update cart display
+          _this.updateCart(checkout);
+
+        }).catch(function (error) {
+          console.log(error);
+        });
+
+      } else {// Non existing checkout
+
+        // Create an empty checkout
+        this.client.checkout.create().
+        then(function (checkout) {
+          // Do something with the checkout
+          // console.log('EMPTY CHECKOUT CREATED', checkout);
+
+          // Save checkout in object
+          _this.checkout = checkout;
+
+          // Save the shopifyCheckoutId in a cookie
+          _jsCookie2.default.set(_this.checkoutIdCookieKey, checkout.id, { expires: 7 }); // Expires in 7 days
+        });
+      }
     } }, { key: 'fetchProductMeta', value: function fetchProductMeta(
 
-    index, element) {var _this = this;
-      var productHandle = $(element).attr('data-shopify-handle');
+    index, element) {var _this2 = this;
+      var productHandle = $(element).attr(this.productHandleAttr);
 
       if (!productHandle) {
         this.setProductAvailability(element);
@@ -137,15 +188,55 @@ Shop = function () {
 
       // Fetch data from shopify. Returns a promise
       this.client.product.fetchByHandle(productHandle).
-      then(function (data) {
-        console.log(data);
+      then(function (product) {
+        var productAvailable = _this2.setProductAvailability(element, product.variants);
 
-        _this.setProductAvailability(element, data.variants);
+        if (productAvailable) {
+          _this2.updateProductVariant(element, product.variants[0]);
+        }
+
+        // Generate variation selector
+        if (product.variants.length > 1) {
+          _this2.generateOptions(element, product.variants);
+        }
+
+        // Bind functions
+        //this.handleAddToCart = this.handleAddToCart.bind(this, element, product.variants);
+
+        _this2.$addToCartButton.on('click', _this2.handleAddToCart.bind(_this2, element, product.variants));
       }).
       catch(function (error) {
         console.log(error);
       });
 
+    }
+
+    /**
+       * Add item to Cart
+       */ }, { key: 'handleAddToCart', value: function handleAddToCart(
+    element, variants) {var _this3 = this;
+      var itemsToAdd = this.getQuantityAndVariant(element, variants);
+
+      if (itemsToAdd.variantId) {
+
+        // Add an item to the checkout in shopify
+        this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd]).
+        then(function (checkout) {
+          // Do something with the updated checkout
+
+          // Update the cart with the updated checkout
+          _this3.updateCart(checkout);
+        }).
+        catch(function (error) {
+          console.log(error);
+        });
+
+      } else {
+        $('#out-of-stock').addClass('show');
+      }
+
+      // Prevent default form submit
+      return false;
     }
 
     /**
@@ -170,61 +261,123 @@ Shop = function () {
       // if no variants, we assume product is unavailable
 
       // assign attribute value
-      $(element).attr('data-available', productAvailable);
-    }
+      $(element).attr(this.productAvailableAttr, productAvailable);
 
-    /**
-       * Init the Shopify checkout, current or new
-       */ }, { key: 'initCheckout', value: function initCheckout()
-    {var _this2 = this;
+      return productAvailable;
+    } }, { key: 'updateProductVariant', value: function updateProductVariant(
 
-      // Get cart link DOM elements
-      this.$cartCounter = $('#cart-counter');
+    element, variant) {
+      var $priceWrapper = $(element).find(this.priceWrapperClass);
+      var $variantIdInput = $(element).find(this.variantIdInputClass);
 
-      // Get shopifyCheckoutId from cookies
-      var checkoutId = _jsCookie2.default.get('shopifyCheckoutId');
-
-      // If shopifyCheckoutId already exists (means there was already a cart initiated before)
-      if (checkoutId) {
-
-        // Fetch existing checkout by its checkoutId
-        this.client.checkout.fetch(checkoutId).
-        then(function (checkout) {
-          // Do something with the checkout
-          // console.log('EXISTING CHECKOUT', checkout);
-
-          // Save the checkout in object
-          _this2.checkout = checkout;
-
-          // Update cart display
-          _this2.updateCart(checkout);
-
-        }).catch(function (error) {
-          console.log(error);
-        });
-
-      } else {// Non existing checkout
-
-        // Create an empty checkout
-        this.client.checkout.create().
-        then(function (checkout) {
-          // Do something with the checkout
-          // console.log('EMPTY CHECKOUT CREATED', checkout);
-
-          // Save checkout in object
-          _this2.checkout = checkout;
-
-          // Save the shopifyCheckoutId in a cookie
-          _jsCookie2.default.set('shopifyCheckoutId', checkout.id, { expires: 7 }); // Expires in 7 days
-        });
+      if (variant) {
+        if ($priceWrapper.length) {
+          this.setVariantPrice($priceWrapper, variant);
+        }
+        if ($variantIdInput.length) {
+          this.setVariantId($variantIdInput, variant);
+        }
       }
-    } }, { key: 'initSingleProduct', value: function initSingleProduct()
+    } }, { key: 'setVariantPrice', value: function setVariantPrice(
 
-    {
-      this.productHandle = $('#shopify-handle').attr('data-shopify-handle');
+    $priceWrapper, variant) {
+      var price = variant.compareAtPrice ? variant.compareAtPrice : variant.price;
 
-      if (this.productHandle) {
-        this.fetchProductMeta(this.productHandle);
+      $priceWrapper.html(price);
+    } }, { key: 'setVariantId', value: function setVariantId(
+
+    $variantIdInput, variant) {
+      $variantIdInput.val(variant.id);
+    } }, { key: 'getQuantityAndVariant', value: function getQuantityAndVariant(
+
+    element, variants) {
+      var variantId = this.getVariantId(element, variants);
+
+      var $quantitySelect = $(element).find(this.quantitySelectClass);
+      var quantity = $quantitySelect.length ? parseInt($quantitySelect.val()) : 1;
+
+      // Has to be an array
+      return {
+        variantId: variantId,
+        quantity: quantity };
+
+    } }, { key: 'generateOptions', value: function generateOptions(
+
+    product) {
+      product.options.map(function (option) {
+        var hidden = '';
+
+        if (option.name === 'Title') {
+          hidden = 'u-hidden';
+        }
+
+        var optionHtml = '\n      <div class="grid-item item-s-12 no-gutter grid-row margin-bottom-basic align-items-center ' +
+        hidden + '">\n        <div class="grid-item item-s-6 text-align-right">\n          <label for="option-' +
+
+        option.name + '" class="font-uppercase font-size-small">' + option.name + '</label>\n        </div>\n        <div class="grid-item item-s-6">\n          <select id="option-' +
+
+
+        option.name + '" class="gws-variant-select font-uppercase">';
+
+        option.values.map(function (option) {
+          optionHtml += '<option value="' + option.value + '">' + option.value + '</option>';
+        });
+
+        optionHtml += '\n          </select>\n        </div>\n      </div>';
+
+
+
+
+        $('#product-options').append(optionHtml);
+      });
+    } }, { key: 'getVariantId', value: function getVariantId(
+
+    element, variants) {
+      if (variants.length === 1) {
+        return variants[0].id;
+      }
+
+      // Map values of form select inputs to array
+      var selectedOptions = $(element).find(this.variantSelectClass).map(function (index, elem) {
+        return $(elem).val();
+      });
+
+      // Set defaults for variant search
+      var matchFound = false;
+      var variantId = false;
+
+      // Loop through product variants
+      // example: Small/White, Medium/White, Small/Black, ...
+      for (var i = 0; i < variants.length; i++) {
+        var variantOptions = variants[i].selectedOptions;
+        variantId = variants[i].id;
+
+        // initiate selectedOptions counter
+        var v = 0;
+
+        // Loop through options of each variant
+        // example: Small, White
+        for (var j = 0; j < variantOptions.length; j++) {
+
+          // Loop through values retrieved from form select inputs.
+          // See if they correspond to this variant's options
+          for (var k = 0; k < selectedOptions.length; k++) {
+
+            // TRUE if this variant option matches the selected option
+            matchFound = variantOptions[j].value === selectedOptions[v];
+
+            if (matchFound) {
+              // If this is the last selected option
+              // and match found is still true
+              if (v === selectedOptions.length - 1) {
+                return variantId;
+              }
+
+              // Otherwise just iterate to next selected option
+              v++;
+            }
+          }
+        }
       }
     } }, { key: 'initCartSection', value: function initCartSection()
 
@@ -240,45 +393,9 @@ Shop = function () {
     }
 
     /**
-       * Fetch a product data from shopiy
-       * @param {string} productHandle - The product handle
-       */
-    /*
-          fetchProductMeta(productHandle) {
-            // Fetch data from shopify. Returns a promise
-            this.client.product.fetchByHandle(productHandle)
-              .then(product => {
-                 // Get DOM elements
-                this.$price = $('.single-product-price');
-                this.$quantitySelect = $('#quantity');
-                this.$quantityLabel = $('#quantity-select-label');
-                this.$variationSelect = $('#variation-select');
-                this.$variationLabel = $('#variation-select-label');
-                 // Display price
-                this.showPrice(product, this.$price);
-                 // Generate variation selector
-                this.generateOptions(product);
-                 // Bind functions
-                this.handleAddToCart = this.handleAddToCart.bind(this, product);
-                 // Bind AddToCart button
-                $('.add-to-cart').on('click', this.handleAddToCart);
-               })
-              .catch( error => {
-                console.log(error);
-              });
-          }
-          */
-
-
-
-
-
-
-
-    /**
-              * Update cart
-              * @param {object} checkout - The updated shopify checkout object
-              */ }, { key: 'updateCart', value: function updateCart(
+       * Update cart
+       * @param {object} checkout - The updated shopify checkout object
+       */ }, { key: 'updateCart', value: function updateCart(
     checkout) {var
       lineItems = checkout.lineItems,webUrl = checkout.webUrl,subtotalPrice = checkout.subtotalPrice;
 
@@ -286,7 +403,7 @@ Shop = function () {
       this.$cartCounter.html(lineItems.length);
 
       // Update page Cart content
-      if ($('#cart').length) {
+      if (this.$cart.length) {
         this.clearCartMarkup();
 
         if (lineItems.length > 0) {
@@ -296,7 +413,6 @@ Shop = function () {
           this.generateSubtotal();
           this.updateSubtotal(subtotalPrice);
 
-          this.$removeItem = $('.remove-item');
           this.bindRemoveItems();
         }
       }
@@ -309,41 +425,6 @@ Shop = function () {
       this.$itemsContainer.html('');
       this.$subtotalContainer.html('');
       this.$checkoutContainer.html('');
-    }
-
-    /**
-       * Show price in an DOM element
-       * @param {object} product - Shopify product object
-       * @param {object} $element - jQuery DOM object to update
-       */ }, { key: 'showPrice', value: function showPrice(
-    product, $element) {
-      // Update the element with the price of the first variant
-      $element.html('$ ' + product.attrs.variants[0].price);
-    }
-
-    /**
-       * Add item to Cart
-       */ }, { key: 'handleAddToCart', value: function handleAddToCart(
-    product) {var _this3 = this;
-      var itemsToAdd = this.getQuantityAndVariant(product);
-
-      if (itemsToAdd.variantId) {
-
-        // Add an item to the checkout in shopify
-        this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd]).
-        then(function (checkout) {
-          // Do something with the updated checkout
-
-          // Update the cart with the updated checkout
-          _this3.updateCart(checkout);
-        }).
-        catch(function (error) {
-          console.log(error);
-        });
-
-      } else {
-        $('#out-of-stock').addClass('show');
-      }
     }
 
     /*
@@ -433,35 +514,6 @@ Shop = function () {
         console.log(checkout); // Quantity of line item 'Z2lkOi8vc2hvcGlmeS9Qcm9kdWN0Lzc4NTc5ODkzODQ=' updated to 2
         _this5.updateSubtotal(checkout.subtotalPrice);
       });
-    } }, { key: 'generateOptions', value: function generateOptions(
-
-    product) {
-      product.options.map(function (option) {
-        var hidden = '';
-
-        if (option.name === 'Title') {
-          hidden = 'u-hidden';
-        }
-
-        var optionHtml = '\n      <div class="grid-item item-s-12 no-gutter grid-row margin-bottom-basic align-items-center ' +
-        hidden + '">\n        <div class="grid-item item-s-6 text-align-right">\n          <label for="option-' +
-
-        option.name + '" class="font-uppercase font-size-small">' + option.name + '</label>\n        </div>\n        <div class="grid-item item-s-6">\n          <select id="option-' +
-
-
-        option.name + '" class="product-variant-select font-uppercase">';
-
-        option.values.map(function (option) {
-          optionHtml += '<option value="' + option.value + '">' + option.value + '</option>';
-        });
-
-        optionHtml += '\n          </select>\n        </div>\n      </div>';
-
-
-
-
-        $('#product-options').append(optionHtml);
-      });
     } }, { key: 'bindRemoveItems', value: function bindRemoveItems()
 
     {
@@ -474,69 +526,11 @@ Shop = function () {
       this.client.checkout.removeLineItems(this.checkout.id, [productId]).then(function (checkout) {
         _this6.updateCart(checkout);
       });
-    } }, { key: 'getVariantId', value: function getVariantId(
-
-    product) {
-      // Map values of form select inputs to array
-      var selectedOptions = $('.product-variant-select').map(function (index, elem) {
-        return $(elem).val();
-      });
-
-      var variants = product.variants;
-
-      // Set defaults for variant search
-      var matchFound = false;
-      var variantId = false;
-
-      // Loop through product variants
-      // example: Small/White, Medium/White, Small/Black, ...
-      for (var i = 0; i < variants.length; i++) {
-        var variantOptions = variants[i].selectedOptions;
-        variantId = variants[i].id;
-
-        // initiate selectedOptions counter
-        var v = 0;
-
-        // Loop through options of each variant
-        // example: Small, White
-        for (var j = 0; j < variantOptions.length; j++) {
-
-          // Loop through values retrieved from form select inputs.
-          // See if they correspond to this variant's options
-          for (var k = 0; k < selectedOptions.length; k++) {
-
-            // TRUE if this variant option matches the selected option
-            matchFound = variantOptions[j].value === selectedOptions[v];
-
-            if (matchFound) {
-              // If this is the last selected option
-              // and match found is still true
-              if (v === selectedOptions.length - 1) {
-                return variantId;
-              }
-
-              // Otherwise just iterate to next selected option
-              v++;
-            }
-          }
-        }
-      }
-    } }, { key: 'getQuantityAndVariant', value: function getQuantityAndVariant(
-
-    product) {
-      var variantId = this.getVariantId(product);
-      var quantity = parseInt(this.$quantitySelect.val());
-
-      // Has to be an array
-      return {
-        variantId: variantId,
-        quantity: quantity };
-
-    } }]);return Shop;}();
+    } }]);return GWS;}();
 
 
 
-new Shop();
+new GWS();
 
 /***/ }),
 /* 1 */
