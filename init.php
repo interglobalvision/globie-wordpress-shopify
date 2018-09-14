@@ -11,19 +11,19 @@ License URI:  https://www.gnu.org/licenses/gpl-2.0.html
 Text Domain:  igv
 */
 
-function globie_wordpress_shopify_init() {
+function gws_init() {
 
-  add_action( 'init', 'globie_wordpress_shopify_register_post_types' );
+  add_action( 'init', 'gws_register_post_types' );
 
-  add_action( 'wp_enqueue_scripts', 'globie_wordpress_shopify_enqueue_scripts' );
+  add_action( 'wp_enqueue_scripts', 'gws_enqueue_scripts' );
 
-  add_action( 'cmb2_admin_init', 'globie_wordpress_shopify_register_settings' );
+  add_action( 'cmb2_admin_init', 'gws_register_settings' );
 
-  add_action( 'cmb2_init', 'globie_wordpress_shopify_register_metaboxes' );
+  add_action( 'cmb2_init', 'gws_register_metaboxes' );
 
 }
 
-function globie_wordpress_shopify_register_post_types() {
+function gws_register_post_types() {
 
   $labels = array(
     'name' => _x( 'Products', 'product' ),
@@ -61,17 +61,17 @@ function globie_wordpress_shopify_register_post_types() {
   register_post_type( 'product', $args );
 }
 
-function globie_wordpress_shopify_register_metaboxes() {
+function gws_register_metaboxes() {
   /*if (!class_exists( 'cmb2_bootstrap_202' )) {
     return new WP_Error( 'globie_wordpress_shopify_need_cmb2', __( "globie_wordpress_shopify depends on cmb2. please require it first.", "igv" ) );
   }*/
 
-  $prefix = '_igv_';
+  $prefix = '_gws_';
 
   // Product Metabox
 
   $product_options = new_cmb2_box( array(
-    'id'            => 'product_meta',
+    'id'            => $prefix . 'product_meta',
     'title'         => __( 'Product Information', 'igv' ),
     'object_types'  => array( 'product', ), // Post type
     'context'       => 'normal',
@@ -83,28 +83,28 @@ function globie_wordpress_shopify_register_metaboxes() {
 
   $product_options->add_field( array(
     'name'       => __( 'Shopify Product Handle', 'igv' ),
-    'id'         => $prefix . 'shopify_product_handle',
+    'id'         => $prefix . 'product_handle',
     'desc'    => __( 'The handle can be found on product URLs. Ex. in https://myshop.myshopify.com/products/my-product "my-product" is the handle', 'igb' ),
     'type'       => 'text',
   ) );
 
 }
 
-function globie_wordpress_shopify_register_settings() {
+function gws_register_settings() {
 
-  $prefix = '_igv_';
+  $prefix = '_gws_';
 
 	$shop_options = new_cmb2_box( array(
 		'id'           => $prefix . 'shopify_options_metabox',
 		'title'        => esc_html__( 'Shopify Config', 'igv' ),
 		'object_types' => array( 'options-page' ),
-		'option_key'   => 'shopify_config', // The option key and admin menu page slug.
+		'option_key'   => $prefix . 'shopify_config', // The option key and admin menu page slug.
 		'icon_url'     => 'dashicons-products', // Menu icon. Only applicable if 'parent_slug' is left empty.
 	) );
 
 	$shop_options->add_field( array(
     'name'    => esc_html__( 'Shopify Domain', 'igv' ),
-    'desc'    => esc_html__( 'ex. shop.materialvodka.com', 'igv' ),
+    'desc'    => esc_html__( 'ex. my-shop.myshopify.com', 'igv' ),
     'id'      => $prefix . 'shopify_domain',
     'type'    => 'text',
   ) );
@@ -117,31 +117,31 @@ function globie_wordpress_shopify_register_settings() {
 
 }
 
-function globie_wordpress_shopify_enqueue_scripts() {
+function gws_enqueue_scripts() {
   $shop_scripts = plugin_dir_url( __FILE__ ) . 'dist/js/main.js';
 
-  wp_register_script( 'globie_wordpress_shopify_scripts', $shop_scripts );
+  wp_register_script( 'gws_scripts', $shop_scripts );
 
-  $shopify_domain = globie_wordpress_shopify_get_option('_igv_shopify_domain');
-  $shopify_token = globie_wordpress_shopify_get_option('_igv_shopify_token');
+  $shopify_domain = gws_get_option('_gws_shopify_domain');
+  $shopify_token = gws_get_option('_gws_shopify_token');
 
   $javascriptVars = array(
     'domain' => !empty($shopify_domain) ? $shopify_domain : null,
     'storefrontAccessToken' => !empty($shopify_token) ? $shopify_token : null
   );
 
-  wp_localize_script( 'globie_wordpress_shopify_scripts', 'Shopify', $javascriptVars );
-  wp_enqueue_script( 'globie_wordpress_shopify_scripts', $shop_scripts,'','',true);
+  wp_localize_script( 'gws_scripts', 'Shopify', $javascriptVars );
+  wp_enqueue_script( 'gws_scripts', $shop_scripts,'','',true);
 
 }
 
-function globie_wordpress_shopify_get_option( $key = '', $default = false ) {
+function gws_get_option( $key = '', $default = false ) {
   if ( function_exists( 'cmb2_get_option' ) ) {
     // Use cmb2_get_option as it passes through some key filters.
-    return cmb2_get_option( 'shopify_config', $key, $default );
+    return cmb2_get_option( '_gws_shopify_config', $key, $default );
   }
   // Fallback to get_option if CMB2 is not loaded yet.
-  $opts = get_option( 'shopify_config', $default );
+  $opts = get_option( '_gws_shopify_config', $default );
   $val = $default;
   if ( 'all' == $key ) {
     $val = $opts;
@@ -151,6 +151,6 @@ function globie_wordpress_shopify_get_option( $key = '', $default = false ) {
   return $val;
 }
 
-globie_wordpress_shopify_init();
+gws_init();
 
 ?>
