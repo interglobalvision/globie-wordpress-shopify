@@ -80,13 +80,8 @@ GWS = function () {
     this.fetchProductMeta = this.fetchProductMeta.bind(this);
 
     this.$cartCounter = $('.gws-cart-counter');
-
     this.$product = $('.gws-product');
     this.$addToCartButton = $('.gws-product-add');
-
-    this.$cart = $('.gws-cart');
-    this.$removeItem = $('.gws-cart-remove');
-
     this.checkoutIdCookieKey = 'gwsCheckoutId';
     this.variantIdInputClass = '.gws-variant-id';
     this.priceWrapperClass = '.gws-product-price';
@@ -94,6 +89,18 @@ GWS = function () {
     this.variantSelectClass = '.gws-variant-select';
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
+
+    this.$cart = $('.gws-cart');
+    this.$cartItemsContainer = $('.gws-cart-items');
+    this.$cartProduct = $('.gws-cart-product');
+    this.$checkoutContainer = $('.gws-cart-checkout');
+    this.cartRemoveClass = '.gws-cart-remove';
+    this.cartThumbClass = '.gws-cart-thumb';
+    this.cartTitleClass = '.gws-cart-title';
+    this.cartVariantTitleClass = '.gws-cart-variant-title';
+    this.cartPriceClass = '.gws-cart-price';
+    this.cartQuantityClass = '.gws-cart-quantity';
+    this.cartSubtotalClass = '.gws-cart-subtotal';
 
     $(window).
     resize(this.onResize.bind(this)) // Bind resize
@@ -124,7 +131,6 @@ GWS = function () {
         }
 
         if (this.$cart.length) {// Cart is present
-          this.bindCartToggle();
           this.initCartSection();
         }
 
@@ -385,9 +391,7 @@ GWS = function () {
 
     {
       // Get DOM elements
-      this.$itemsContainer = $('#items-container');
-      this.$checkoutContainer = $('#checkout-container');
-      this.$subtotalContainer = $('#subtotal-container');
+      this.cartProductHtml = this.$cartProduct[0].outerHTML;
 
       // Bind functions
       this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
@@ -406,74 +410,50 @@ GWS = function () {
 
       // Update page Cart content
       if (this.$cart.length) {
-        this.clearCartMarkup();
+        // Clear cart items
+        this.$cartItemsContainer.html('');
 
         if (lineItems.length > 0) {
-          this.generateCartItemsRow(lineItems);
-          this.bindCartInputs(lineItems);
-          this.generateCheckout(webUrl);
-          this.generateSubtotal();
-          this.updateSubtotal(subtotalPrice);
+          this.generateCartItemsRows(lineItems);
+          //this.bindCartInputs(lineItems);
+          //this.generateCheckout(webUrl);
+          //this.generateSubtotal();
+          //this.updateSubtotal(subtotalPrice);
 
-          this.bindRemoveItems();
+          //this.bindRemoveItems();
         }
       }
-    }
-
-    /**
-       * Clear HTML from Cart to prepare for update
-       */ }, { key: 'clearCartMarkup', value: function clearCartMarkup()
-    {
-      this.$itemsContainer.html('');
-      this.$subtotalContainer.html('');
-      this.$checkoutContainer.html('');
     }
 
     /*
        * Generate cart items rows markup
        * @param {object} items - Shopify items object
-       */ }, { key: 'generateCartItemsRow', value: function generateCartItemsRow(
+       */ }, { key: 'generateCartItemsRows', value: function generateCartItemsRows(
     items) {var _this4 = this;
       if (items.length) {
+
         items.map(function (item) {
+          console.log(item);
+          var $cartItem = $(_this4.cartProductHtml);
+          _this4.$cartItemsContainer.append($cartItem);
 
-          var image = item.variant.image.src ? '<img alt="' + item.title + '" src="' + item.variant.image.src + '" />' : '';
+          var $cartThumb = $cartItem.find(_this4.cartThumbClass);
+          var $cartTitle = $cartItem.find(_this4.cartTitleClass);
+          var $cartVariantTitle = $cartItem.find(_this4.cartVariantTitleClass);
+          var $cartQuantity = $cartItem.find(_this4.cartQuantityClass);
+          var $cartSubtotal = $cartItem.find(_this4.cartSubtotalClass);
 
-          var variant = item.variant.title === 'Default Title' ? '' : item.variant.title;
+          var image = item.variant.image !== null ? '<img alt="' + item.title + '" src="' + item.variant.image.src + '" />' : '';
+          var variantTitle = item.variant.title === 'Default Title' ? '' : item.variant.title;
 
-          _this4.$itemsContainer.append('\n          <div class="grid-row margin-bottom-basic">\n            <div class="grid-item item-s-3">\n              ' +
-
-
-          image + '\n            </div>\n            <div class="grid-item item-s-9 grid-row no-gutter">\n              <div class="grid-item item-s-12">\n                <h3>' +
-
-
-
-          item.title + '</h3>\n                <span>' +
-          variant + '</span>\n              </div>\n              <div class="grid-item item-s-12 grid-row no-gutter padding-top-tiny">\n                <div class="grid-item item-s-4 font-size-small">\n                  Qty: <input class="cart-item-quantity font-size-basic" type="number" max="9" min="1" value="' +
-
-
-
-          item.attrs.quantity.value + '" data-product-id="' + item.id + '" />\n                </div>\n                <div class="grid-item item-s-4">\n                  <span>$' +
-
-
-          item.variant.price + '</span>\n                </div>\n                <div class="grid-item item-s-4 text-align-right">\n                  <button class="remove-item font-size-small font-uppercase button-no-padding" data-product-id="' +
-
-
-          item.id + '" >Remove</button>\n                </div>\n              </div>\n            </div>\n          </div>\n        ');
-
-
-
-
-
+          if ($cartThumb) {$cartThumb.html(image);}
+          if ($cartTitle) {$cartTitle.text(item.title);}
+          if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}
+          if ($cartQuantity) {$cartQuantity.val(item.quantity);}
+          if ($cartSubtotal) {$cartSubtotal.text(item.variant.price * item.quantity);}
         });
       } else {
-        this.$itemsContainer.append('\n        <div class="grid-row">\n          <div class="grid-item item-s-12">\n            <h3 class="font-uppercase">Bag is empty</h3>\n          </div>\n        </div>\n      ');
-
-
-
-
-
-
+        console.log('Bag empty');
       }
     } }, { key: 'generateCheckout', value: function generateCheckout(
 

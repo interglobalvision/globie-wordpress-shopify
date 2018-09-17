@@ -10,13 +10,8 @@ class GWS {
     this.fetchProductMeta = this.fetchProductMeta.bind(this);
 
     this.$cartCounter = $('.gws-cart-counter');
-
     this.$product = $('.gws-product');
     this.$addToCartButton = $('.gws-product-add');
-
-    this.$cart = $('.gws-cart');
-    this.$removeItem = $('.gws-cart-remove');
-
     this.checkoutIdCookieKey = 'gwsCheckoutId';
     this.variantIdInputClass = '.gws-variant-id';
     this.priceWrapperClass = '.gws-product-price';
@@ -24,6 +19,18 @@ class GWS {
     this.variantSelectClass = '.gws-variant-select';
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
+
+    this.$cart = $('.gws-cart');
+    this.$cartItemsContainer = $('.gws-cart-items');
+    this.$cartProduct = $('.gws-cart-product');
+    this.$checkoutContainer = $('.gws-cart-checkout');
+    this.cartRemoveClass = '.gws-cart-remove';
+    this.cartThumbClass = '.gws-cart-thumb';
+    this.cartTitleClass = '.gws-cart-title';
+    this.cartVariantTitleClass = '.gws-cart-variant-title';
+    this.cartPriceClass = '.gws-cart-price';
+    this.cartQuantityClass = '.gws-cart-quantity';
+    this.cartSubtotalClass = '.gws-cart-subtotal';
 
     $(window)
       .resize(this.onResize.bind(this)) // Bind resize
@@ -54,7 +61,6 @@ class GWS {
       }
 
       if (this.$cart.length) { // Cart is present
-        this.bindCartToggle();
         this.initCartSection();
       }
 
@@ -315,9 +321,7 @@ class GWS {
 
   initCartSection() {
     // Get DOM elements
-    this.$itemsContainer = $('#items-container');
-    this.$checkoutContainer = $('#checkout-container');
-    this.$subtotalContainer = $('#subtotal-container');
+    this.cartProductHtml = this.$cartProduct[0].outerHTML;
 
     // Bind functions
     this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
@@ -336,74 +340,50 @@ class GWS {
 
     // Update page Cart content
     if (this.$cart.length) {
-      this.clearCartMarkup();
+      // Clear cart items
+      this.$cartItemsContainer.html('');
 
       if (lineItems.length > 0) {
-        this.generateCartItemsRow(lineItems);
-        this.bindCartInputs(lineItems);
-        this.generateCheckout(webUrl);
-        this.generateSubtotal();
-        this.updateSubtotal(subtotalPrice);
+        this.generateCartItemsRows(lineItems);
+        //this.bindCartInputs(lineItems);
+        //this.generateCheckout(webUrl);
+        //this.generateSubtotal();
+        //this.updateSubtotal(subtotalPrice);
 
-        this.bindRemoveItems();
+        //this.bindRemoveItems();
       }
     }
-  }
-
-  /**
-   * Clear HTML from Cart to prepare for update
-   */
-  clearCartMarkup() {
-    this.$itemsContainer.html('');
-    this.$subtotalContainer.html('');
-    this.$checkoutContainer.html('');
   }
 
   /*
    * Generate cart items rows markup
    * @param {object} items - Shopify items object
    */
-  generateCartItemsRow(items) {
+  generateCartItemsRows(items) {
     if (items.length) {
+
       items.map( item => {
+        console.log(item);
+        const $cartItem = $(this.cartProductHtml);
+        this.$cartItemsContainer.append($cartItem);
 
-        const image =  item.variant.image.src ?  `<img alt="${item.title}" src="${item.variant.image.src}" />` : ``;
+        const $cartThumb = $cartItem.find(this.cartThumbClass);
+        const $cartTitle = $cartItem.find(this.cartTitleClass);
+        const $cartVariantTitle = $cartItem.find(this.cartVariantTitleClass);
+        const $cartQuantity = $cartItem.find(this.cartQuantityClass);
+        const $cartSubtotal = $cartItem.find(this.cartSubtotalClass);
 
-        const variant = item.variant.title === `Default Title` ? `` : item.variant.title;
+        const image = item.variant.image !== null ? `<img alt="${item.title}" src="${item.variant.image.src}" />` : ``;
+        const variantTitle = item.variant.title === `Default Title` ? `` : item.variant.title;
 
-        this.$itemsContainer.append(`
-          <div class="grid-row margin-bottom-basic">
-            <div class="grid-item item-s-3">
-              ${image}
-            </div>
-            <div class="grid-item item-s-9 grid-row no-gutter">
-              <div class="grid-item item-s-12">
-                <h3>${item.title}</h3>
-                <span>${variant}</span>
-              </div>
-              <div class="grid-item item-s-12 grid-row no-gutter padding-top-tiny">
-                <div class="grid-item item-s-4 font-size-small">
-                  Qty: <input class="cart-item-quantity font-size-basic" type="number" max="9" min="1" value="${item.attrs.quantity.value}" data-product-id="${item.id}" />
-                </div>
-                <div class="grid-item item-s-4">
-                  <span>$${item.variant.price}</span>
-                </div>
-                <div class="grid-item item-s-4 text-align-right">
-                  <button class="remove-item font-size-small font-uppercase button-no-padding" data-product-id="${item.id}" >Remove</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        `);
+        if ($cartThumb) {$cartThumb.html(image);}
+        if ($cartTitle) {$cartTitle.text(item.title);}
+        if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}
+        if ($cartQuantity) {$cartQuantity.val(item.quantity);}
+        if ($cartSubtotal) {$cartSubtotal.text(item.variant.price * item.quantity);}
       });
     } else {
-      this.$itemsContainer.append(`
-        <div class="grid-row">
-          <div class="grid-item item-s-12">
-            <h3 class="font-uppercase">Bag is empty</h3>
-          </div>
-        </div>
-      `);
+      console.log('Bag empty');
     }
   }
 
