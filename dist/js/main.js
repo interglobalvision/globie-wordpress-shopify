@@ -92,9 +92,11 @@ GWS = function () {
 
     this.$cart = $('.gws-cart');
     this.$cartItemsContainer = $('.gws-cart-items');
-    this.$cartProduct = $('.gws-cart-product');
+    this.cartItemClass = '.gws-cart-item';
+    this.$cartItem = $(this.cartItemClass);
     this.$checkoutContainer = $('.gws-cart-checkout');
     this.cartRemoveClass = '.gws-cart-remove';
+    this.cartItemIdAttr = 'data-gws-cart-item-id';
     this.cartThumbClass = '.gws-cart-thumb';
     this.cartTitleClass = '.gws-cart-title';
     this.cartVariantTitleClass = '.gws-cart-variant-title';
@@ -391,7 +393,7 @@ GWS = function () {
 
     {
       // Get DOM elements
-      this.cartProductHtml = this.$cartProduct[0].outerHTML;
+      this.cartItemHtml = this.$cartItem[0].outerHTML;
 
       // Bind functions
       this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
@@ -420,7 +422,7 @@ GWS = function () {
           //this.generateSubtotal();
           //this.updateSubtotal(subtotalPrice);
 
-          //this.bindRemoveItems();
+          this.bindRemoveItems();
         }
       }
     }
@@ -432,26 +434,40 @@ GWS = function () {
     items) {var _this4 = this;
       if (items.length) {
 
-        items.map(function (item) {
-          console.log(item);
-          var $cartItem = $(_this4.cartProductHtml);
+        items.forEach(function (item) {
+          if (!item.variant.available) {
+            // Item sold out
+            _this4.removeCartItems(item.id);
+            return;
+          }
+
+          // Get item markup and append as new element
+          var $cartItem = $(_this4.cartItemHtml);
           _this4.$cartItemsContainer.append($cartItem);
 
+          // Set item ID to data attr
+          $cartItem.attr(_this4.cartItemIdAttr, item.id);
+
+          // Declare item elements
           var $cartThumb = $cartItem.find(_this4.cartThumbClass);
           var $cartTitle = $cartItem.find(_this4.cartTitleClass);
           var $cartVariantTitle = $cartItem.find(_this4.cartVariantTitleClass);
           var $cartQuantity = $cartItem.find(_this4.cartQuantityClass);
           var $cartSubtotal = $cartItem.find(_this4.cartSubtotalClass);
 
+          // Define item image and title
           var image = item.variant.image !== null ? '<img alt="' + item.title + '" src="' + item.variant.image.src + '" />' : '';
           var variantTitle = item.variant.title === 'Default Title' ? '' : item.variant.title;
 
+          // Fill item content if defined
           if ($cartThumb) {$cartThumb.html(image);}
           if ($cartTitle) {$cartTitle.text(item.title);}
           if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}
           if ($cartQuantity) {$cartQuantity.val(item.quantity);}
           if ($cartSubtotal) {$cartSubtotal.text(item.variant.price * item.quantity);}
         });
+
+        this.$cartRemoveItem = $(this.cartRemoveClass);
       } else {
         console.log('Bag empty');
       }
@@ -499,13 +515,16 @@ GWS = function () {
     } }, { key: 'bindRemoveItems', value: function bindRemoveItems()
 
     {
-      this.$removeItem.on('click', this.handleRemoveItems);
+      this.$cartRemoveItem.on('click', this.handleRemoveItems);
     } }, { key: 'handleRemoveItems', value: function handleRemoveItems(
 
-    event) {var _this6 = this;
-      var productId = event.target.dataset.productId;
+    event) {
+      var cartItemId = $(event.target).closest(this.cartItemClass).attr(this.cartItemIdAttr);
+      this.removeCartItems(cartItemId);
+    } }, { key: 'removeCartItems', value: function removeCartItems(
 
-      this.client.checkout.removeLineItems(this.checkout.id, [productId]).then(function (checkout) {
+    cartItemId) {var _this6 = this;
+      this.client.checkout.removeLineItems(this.checkout.id, [cartItemId]).then(function (checkout) {
         _this6.updateCart(checkout);
       });
     } }]);return GWS;}();

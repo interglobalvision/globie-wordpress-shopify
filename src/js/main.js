@@ -22,9 +22,11 @@ class GWS {
 
     this.$cart = $('.gws-cart');
     this.$cartItemsContainer = $('.gws-cart-items');
-    this.$cartProduct = $('.gws-cart-product');
+    this.cartItemClass = '.gws-cart-item';
+    this.$cartItem = $(this.cartItemClass);
     this.$checkoutContainer = $('.gws-cart-checkout');
     this.cartRemoveClass = '.gws-cart-remove';
+    this.cartItemIdAttr = 'data-gws-cart-item-id';
     this.cartThumbClass = '.gws-cart-thumb';
     this.cartTitleClass = '.gws-cart-title';
     this.cartVariantTitleClass = '.gws-cart-variant-title';
@@ -321,7 +323,7 @@ class GWS {
 
   initCartSection() {
     // Get DOM elements
-    this.cartProductHtml = this.$cartProduct[0].outerHTML;
+    this.cartItemHtml = this.$cartItem[0].outerHTML;
 
     // Bind functions
     this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
@@ -350,7 +352,7 @@ class GWS {
         //this.generateSubtotal();
         //this.updateSubtotal(subtotalPrice);
 
-        //this.bindRemoveItems();
+        this.bindRemoveItems();
       }
     }
   }
@@ -362,26 +364,40 @@ class GWS {
   generateCartItemsRows(items) {
     if (items.length) {
 
-      items.map( item => {
-        console.log(item);
-        const $cartItem = $(this.cartProductHtml);
+      items.forEach( item => {
+        if (!item.variant.available) {
+          // Item sold out
+          this.removeCartItems(item.id);
+          return;
+        }
+
+        // Get item markup and append as new element
+        const $cartItem = $(this.cartItemHtml);
         this.$cartItemsContainer.append($cartItem);
 
+        // Set item ID to data attr
+        $cartItem.attr(this.cartItemIdAttr, item.id);
+
+        // Declare item elements
         const $cartThumb = $cartItem.find(this.cartThumbClass);
         const $cartTitle = $cartItem.find(this.cartTitleClass);
         const $cartVariantTitle = $cartItem.find(this.cartVariantTitleClass);
         const $cartQuantity = $cartItem.find(this.cartQuantityClass);
         const $cartSubtotal = $cartItem.find(this.cartSubtotalClass);
 
+        // Define item image and title
         const image = item.variant.image !== null ? `<img alt="${item.title}" src="${item.variant.image.src}" />` : ``;
         const variantTitle = item.variant.title === `Default Title` ? `` : item.variant.title;
 
+        // Fill item content if defined
         if ($cartThumb) {$cartThumb.html(image);}
         if ($cartTitle) {$cartTitle.text(item.title);}
         if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}
         if ($cartQuantity) {$cartQuantity.val(item.quantity);}
         if ($cartSubtotal) {$cartSubtotal.text(item.variant.price * item.quantity);}
       });
+
+      this.$cartRemoveItem = $(this.cartRemoveClass);
     } else {
       console.log('Bag empty');
     }
@@ -429,13 +445,16 @@ class GWS {
   }
 
   bindRemoveItems() {
-    this.$removeItem.on('click', this.handleRemoveItems);
+    this.$cartRemoveItem.on('click', this.handleRemoveItems);
   }
 
   handleRemoveItems(event) {
-    const productId =  event.target.dataset.productId;
+    const cartItemId = $(event.target).closest(this.cartItemClass).attr(this.cartItemIdAttr);
+    this.removeCartItems(cartItemId);
+  }
 
-    this.client.checkout.removeLineItems(this.checkout.id, [productId]).then( checkout => {
+  removeCartItems(cartItemId) {
+    this.client.checkout.removeLineItems(this.checkout.id, [cartItemId]).then( checkout => {
       this.updateCart(checkout);
     });
   }
