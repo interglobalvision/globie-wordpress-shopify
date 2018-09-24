@@ -33,6 +33,7 @@ class GWS {
     this.cartPriceClass = '.gws-cart-price';
     this.cartQuantityClass = '.gws-cart-quantity';
     this.cartSubtotalClass = '.gws-cart-subtotal';
+    this.cartUpdateEventType = 'gwsCartUpdate';
 
     $(window)
       .resize(this.onResize.bind(this)) // Bind resize
@@ -157,8 +158,7 @@ class GWS {
   handleAddToCart(element, variants) {
     const itemsToAdd = this.getQuantityAndVariant(element, variants);
 
-    if (itemsToAdd.variantId) {
-
+    if (itemsToAdd) {
       // Add an item to the checkout in shopify
       this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd])
         .then((checkout) => {
@@ -231,14 +231,17 @@ class GWS {
   }
 
   getQuantityAndVariant(element, variants) {
-    const variantId = this.getVariantId(element, variants);
+    const variant = this.getSelectedVariant(element, variants);
 
     const $quantitySelect = $(element).find(this.quantitySelectClass);
     const quantity = $quantitySelect.length ? parseInt($quantitySelect.val()) : 1;
 
-    // Has to be an array
+    if (!variant.available) {
+      return false;
+    }
+
     return({
-      variantId,
+      variant,
       quantity,
     });
   }
@@ -272,9 +275,9 @@ class GWS {
     });
   }
 
-  getVariantId(element, variants) {
+  getSelectedVariant(element, variants) {
     if (variants.length === 1) {
-      return variants[0].id;
+      return variants[0];
     }
 
     // Map values of form select inputs to array
@@ -284,13 +287,13 @@ class GWS {
 
     // Set defaults for variant search
     let matchFound = false;
-    let variantId = false;
+    let variant = null;
 
     // Loop through product variants
     // example: Small/White, Medium/White, Small/Black, ...
     for (let i = 0; i < variants.length; i++) {
       let variantOptions = variants[i].selectedOptions;
-      variantId = variants[i].id;
+      variant = variants[i];
 
       // initiate selectedOptions counter
       let v = 0;
@@ -310,7 +313,7 @@ class GWS {
             // If this is the last selected option
             // and match found is still true
             if (v === (selectedOptions.length - 1)) {
-              return variantId;
+              return variant;
             }
 
             // Otherwise just iterate to next selected option
@@ -319,6 +322,8 @@ class GWS {
         }
       }
     }
+
+    return variant;
   }
 
   initCartSection() {
@@ -456,7 +461,19 @@ class GWS {
   removeCartItems(cartItemId) {
     this.client.checkout.removeLineItems(this.checkout.id, [cartItemId]).then( checkout => {
       this.updateCart(checkout);
+      window.dispatchEvent(event);
     });
+  }
+
+  dispatchUpdateEvent(context, variant) {
+    window.dispatchEvent(
+      new CustomEvent(this.cartUpdateEventType, {
+        detail: {
+          context,
+          variant
+        }
+      })
+    );
   }
 
 }

@@ -103,6 +103,7 @@ GWS = function () {
     this.cartPriceClass = '.gws-cart-price';
     this.cartQuantityClass = '.gws-cart-quantity';
     this.cartSubtotalClass = '.gws-cart-subtotal';
+    this.cartUpdateEventType = 'gwsCartUpdate';
 
     $(window).
     resize(this.onResize.bind(this)) // Bind resize
@@ -227,8 +228,7 @@ GWS = function () {
     element, variants) {var _this3 = this;
       var itemsToAdd = this.getQuantityAndVariant(element, variants);
 
-      if (itemsToAdd.variantId) {
-
+      if (itemsToAdd) {
         // Add an item to the checkout in shopify
         this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd]).
         then(function (checkout) {
@@ -301,14 +301,17 @@ GWS = function () {
     } }, { key: 'getQuantityAndVariant', value: function getQuantityAndVariant(
 
     element, variants) {
-      var variantId = this.getVariantId(element, variants);
+      var variant = this.getSelectedVariant(element, variants);
 
       var $quantitySelect = $(element).find(this.quantitySelectClass);
       var quantity = $quantitySelect.length ? parseInt($quantitySelect.val()) : 1;
 
-      // Has to be an array
+      if (!variant.available) {
+        return false;
+      }
+
       return {
-        variantId: variantId,
+        variant: variant,
         quantity: quantity };
 
     } }, { key: 'generateOptions', value: function generateOptions(
@@ -340,11 +343,11 @@ GWS = function () {
 
         $('#product-options').append(optionHtml);
       });
-    } }, { key: 'getVariantId', value: function getVariantId(
+    } }, { key: 'getSelectedVariant', value: function getSelectedVariant(
 
     element, variants) {
       if (variants.length === 1) {
-        return variants[0].id;
+        return variants[0];
       }
 
       // Map values of form select inputs to array
@@ -354,13 +357,13 @@ GWS = function () {
 
       // Set defaults for variant search
       var matchFound = false;
-      var variantId = false;
+      var variant = null;
 
       // Loop through product variants
       // example: Small/White, Medium/White, Small/Black, ...
       for (var i = 0; i < variants.length; i++) {
         var variantOptions = variants[i].selectedOptions;
-        variantId = variants[i].id;
+        variant = variants[i];
 
         // initiate selectedOptions counter
         var v = 0;
@@ -380,7 +383,7 @@ GWS = function () {
               // If this is the last selected option
               // and match found is still true
               if (v === selectedOptions.length - 1) {
-                return variantId;
+                return variant;
               }
 
               // Otherwise just iterate to next selected option
@@ -389,6 +392,8 @@ GWS = function () {
           }
         }
       }
+
+      return variant;
     } }, { key: 'initCartSection', value: function initCartSection()
 
     {
@@ -526,7 +531,19 @@ GWS = function () {
     cartItemId) {var _this6 = this;
       this.client.checkout.removeLineItems(this.checkout.id, [cartItemId]).then(function (checkout) {
         _this6.updateCart(checkout);
+        window.dispatchEvent(event);
       });
+    } }, { key: 'dispatchUpdateEvent', value: function dispatchUpdateEvent(
+
+    context, variant) {
+      window.dispatchEvent(
+      new CustomEvent(this.cartUpdateEventType, {
+        detail: {
+          context: context,
+          variant: variant } }));
+
+
+
     } }]);return GWS;}();
 
 
