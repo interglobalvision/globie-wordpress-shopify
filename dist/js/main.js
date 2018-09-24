@@ -531,9 +531,9 @@ GWS = function () {
     cartItemId) {var _this6 = this;
       this.client.checkout.removeLineItems(this.checkout.id, [cartItemId]).then(function (checkout) {
         _this6.updateCart(checkout);
-        window.dispatchEvent(event);
+        _this6.dispatchCartUpdateEvent('removed');
       });
-    } }, { key: 'dispatchUpdateEvent', value: function dispatchUpdateEvent(
+    } }, { key: 'dispatchCartUpdateEvent', value: function dispatchCartUpdateEvent(
 
     context, variant) {
       window.dispatchEvent(

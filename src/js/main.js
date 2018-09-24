@@ -461,11 +461,11 @@ class GWS {
   removeCartItems(cartItemId) {
     this.client.checkout.removeLineItems(this.checkout.id, [cartItemId]).then( checkout => {
       this.updateCart(checkout);
-      window.dispatchEvent(event);
+      this.dispatchCartUpdateEvent('removed');
     });
   }
 
-  dispatchUpdateEvent(context, variant) {
+  dispatchCartUpdateEvent(context, variant) {
     window.dispatchEvent(
       new CustomEvent(this.cartUpdateEventType, {
         detail: {
