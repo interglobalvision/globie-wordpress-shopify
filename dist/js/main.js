@@ -104,6 +104,7 @@ GWS = function () {
     this.cartQuantityClass = '.gws-cart-quantity';
     this.cartSubtotalClass = '.gws-cart-subtotal';
     this.cartUpdateEventType = 'gwsCartUpdate';
+    this.cartEmptyAttr = 'data-gws-cart-empty';
 
     $(window).
     resize(this.onResize.bind(this)) // Bind resize
@@ -233,8 +234,12 @@ GWS = function () {
         this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd]).
         then(function (checkout) {
           // Do something with the updated checkout
+          _this3.dispatchCartUpdateEvent('added', checkout.lineItems[0].variant);
 
-          // Update the cart with the updated checkout
+          // Update cart count
+          _this3.updateCart(checkout);
+
+          // Update cart
           _this3.updateCart(checkout);
         }).
         catch(function (error) {
@@ -311,7 +316,7 @@ GWS = function () {
       }
 
       return {
-        variant: variant,
+        variantId: variant.id,
         quantity: quantity };
 
     } }, { key: 'generateOptions', value: function generateOptions(
@@ -421,6 +426,8 @@ GWS = function () {
         this.$cartItemsContainer.html('');
 
         if (lineItems.length > 0) {
+          this.$cart.attr(this.cartEmptyAttr, false);
+
           this.generateCartItemsRows(lineItems);
           //this.bindCartInputs(lineItems);
           //this.generateCheckout(webUrl);
@@ -428,6 +435,8 @@ GWS = function () {
           //this.updateSubtotal(subtotalPrice);
 
           this.bindRemoveItems();
+        } else {
+          this.$cart.attr(this.cartEmptyAttr, true);
         }
       }
     }
@@ -460,6 +469,8 @@ GWS = function () {
           var $cartQuantity = $cartItem.find(_this4.cartQuantityClass);
           var $cartSubtotal = $cartItem.find(_this4.cartSubtotalClass);
 
+          console.log(item);
+
           // Define item image and title
           var image = item.variant.image !== null ? '<img alt="' + item.title + '" src="' + item.variant.image.src + '" />' : '';
           var variantTitle = item.variant.title === 'Default Title' ? '' : item.variant.title;
@@ -473,8 +484,6 @@ GWS = function () {
         });
 
         this.$cartRemoveItem = $(this.cartRemoveClass);
-      } else {
-        console.log('Bag empty');
       }
     } }, { key: 'generateCheckout', value: function generateCheckout(
 

@@ -34,6 +34,7 @@ class GWS {
     this.cartQuantityClass = '.gws-cart-quantity';
     this.cartSubtotalClass = '.gws-cart-subtotal';
     this.cartUpdateEventType = 'gwsCartUpdate';
+    this.cartEmptyAttr = 'data-gws-cart-empty';
 
     $(window)
       .resize(this.onResize.bind(this)) // Bind resize
@@ -163,8 +164,12 @@ class GWS {
       this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd])
         .then((checkout) => {
           // Do something with the updated checkout
+          this.dispatchCartUpdateEvent('added', checkout.lineItems[0].variant);
 
-          // Update the cart with the updated checkout
+          // Update cart count
+          this.updateCart(checkout);
+
+          // Update cart
           this.updateCart(checkout);
         })
         .catch( error => {
@@ -241,7 +246,7 @@ class GWS {
     }
 
     return({
-      variant,
+      variantId: variant.id,
       quantity,
     });
   }
@@ -351,6 +356,8 @@ class GWS {
       this.$cartItemsContainer.html('');
 
       if (lineItems.length > 0) {
+        this.$cart.attr(this.cartEmptyAttr, false);
+
         this.generateCartItemsRows(lineItems);
         //this.bindCartInputs(lineItems);
         //this.generateCheckout(webUrl);
@@ -358,6 +365,8 @@ class GWS {
         //this.updateSubtotal(subtotalPrice);
 
         this.bindRemoveItems();
+      } else {
+        this.$cart.attr(this.cartEmptyAttr, true);
       }
     }
   }
@@ -390,6 +399,8 @@ class GWS {
         const $cartQuantity = $cartItem.find(this.cartQuantityClass);
         const $cartSubtotal = $cartItem.find(this.cartSubtotalClass);
 
+        console.log(item);
+
         // Define item image and title
         const image = item.variant.image !== null ? `<img alt="${item.title}" src="${item.variant.image.src}" />` : ``;
         const variantTitle = item.variant.title === `Default Title` ? `` : item.variant.title;
@@ -403,8 +414,6 @@ class GWS {
       });
 
       this.$cartRemoveItem = $(this.cartRemoveClass);
-    } else {
-      console.log('Bag empty');
     }
   }
 
