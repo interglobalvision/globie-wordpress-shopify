@@ -69,7 +69,7 @@
 
 "use strict";
 var _createClass = function () {function defineProperties(target, props) {for (var i = 0; i < props.length; i++) {var descriptor = props[i];descriptor.enumerable = descriptor.enumerable || false;descriptor.configurable = true;if ("value" in descriptor) descriptor.writable = true;Object.defineProperty(target, descriptor.key, descriptor);}}return function (Constructor, protoProps, staticProps) {if (protoProps) defineProperties(Constructor.prototype, protoProps);if (staticProps) defineProperties(Constructor, staticProps);return Constructor;};}(); /* jshint esversion: 6, browser: true, devel: true, indent: 2, curly: true, eqeqeq: true, futurehostile: true, latedef: true, undef: true, unused: true */
-/* global $, document, Shopify */
+/* global $, document, Shopify, WP */
 var _shopifyBuy = __webpack_require__(1);var _shopifyBuy2 = _interopRequireDefault(_shopifyBuy);
 var _jsCookie = __webpack_require__(2);var _jsCookie2 = _interopRequireDefault(_jsCookie);function _interopRequireDefault(obj) {return obj && obj.__esModule ? obj : { default: obj };}function _classCallCheck(instance, Constructor) {if (!(instance instanceof Constructor)) {throw new TypeError("Cannot call a class as a function");}}var
 
@@ -89,18 +89,24 @@ GWS = function () {
     this.variantSelectClass = '.gws-variant-select';
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
+    this.postIdAttr = 'data-gws-post-id';
 
     this.$cart = $('.gws-cart');
     this.$cartItemsContainer = $('.gws-cart-items');
-    this.$cartProduct = $('.gws-cart-product');
+    this.cartItemClass = '.gws-cart-item';
+    this.$cartItem = $(this.cartItemClass);
     this.$checkoutContainer = $('.gws-cart-checkout');
     this.cartRemoveClass = '.gws-cart-remove';
+    this.cartItemIdAttr = 'data-gws-cart-item-id';
     this.cartThumbClass = '.gws-cart-thumb';
     this.cartTitleClass = '.gws-cart-title';
     this.cartVariantTitleClass = '.gws-cart-variant-title';
     this.cartPriceClass = '.gws-cart-price';
     this.cartQuantityClass = '.gws-cart-quantity';
     this.cartSubtotalClass = '.gws-cart-subtotal';
+    this.cartUpdateEventType = 'gwsCartUpdate';
+    this.cartEmptyAttr = 'data-gws-cart-empty';
+    this.productIdAttr = 'data-gws-product-id';
 
     $(window).
     resize(this.onResize.bind(this)) // Bind resize
@@ -208,10 +214,7 @@ GWS = function () {
           _this2.generateOptions(element, product.variants);
         }
 
-        // Bind functions
-        //this.handleAddToCart = this.handleAddToCart.bind(this, element, product.variants);
-
-        _this2.$addToCartButton.on('click', _this2.handleAddToCart.bind(_this2, element, product.variants));
+        _this2.$addToCartButton.on('click', _this2.handleAddToCart.bind(_this2, element, product));
       }).
       catch(function (error) {
         console.log(error);
@@ -222,18 +225,24 @@ GWS = function () {
     /**
        * Add item to Cart
        */ }, { key: 'handleAddToCart', value: function handleAddToCart(
-    element, variants) {var _this3 = this;
-      var itemsToAdd = this.getQuantityAndVariant(element, variants);
+    element, product) {var _this3 = this;
+      var itemsToAdd = this.getQuantityAndVariant(element, product.variants);
 
-      if (itemsToAdd.variantId) {
-
+      if (itemsToAdd) {
         // Add an item to the checkout in shopify
         this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd]).
         then(function (checkout) {
           // Do something with the updated checkout
+          _this3.dispatchCartUpdateEvent('added', checkout.lineItems[0].variant);
 
-          // Update the cart with the updated checkout
+          // Update cart
           _this3.updateCart(checkout);
+
+          // Add handle to localStorage
+          var postId = $(element).attr(_this3.postIdAttr);
+          if (postId) {
+            localStorage.setItem(product.id, postId);
+          }
         }).
         catch(function (error) {
           console.log(error);
@@ -299,14 +308,17 @@ GWS = function () {
     } }, { key: 'getQuantityAndVariant', value: function getQuantityAndVariant(
 
     element, variants) {
-      var variantId = this.getVariantId(element, variants);
+      var variant = this.getSelectedVariant(element, variants);
 
       var $quantitySelect = $(element).find(this.quantitySelectClass);
       var quantity = $quantitySelect.length ? parseInt($quantitySelect.val()) : 1;
 
-      // Has to be an array
+      if (!variant.available) {
+        return false;
+      }
+
       return {
-        variantId: variantId,
+        variantId: variant.id,
         quantity: quantity };
 
     } }, { key: 'generateOptions', value: function generateOptions(
@@ -338,11 +350,11 @@ GWS = function () {
 
         $('#product-options').append(optionHtml);
       });
-    } }, { key: 'getVariantId', value: function getVariantId(
+    } }, { key: 'getSelectedVariant', value: function getSelectedVariant(
 
     element, variants) {
       if (variants.length === 1) {
-        return variants[0].id;
+        return variants[0];
       }
 
       // Map values of form select inputs to array
@@ -352,13 +364,13 @@ GWS = function () {
 
       // Set defaults for variant search
       var matchFound = false;
-      var variantId = false;
+      var variant = null;
 
       // Loop through product variants
       // example: Small/White, Medium/White, Small/Black, ...
       for (var i = 0; i < variants.length; i++) {
         var variantOptions = variants[i].selectedOptions;
-        variantId = variants[i].id;
+        variant = variants[i];
 
         // initiate selectedOptions counter
         var v = 0;
@@ -378,7 +390,7 @@ GWS = function () {
               // If this is the last selected option
               // and match found is still true
               if (v === selectedOptions.length - 1) {
-                return variantId;
+                return variant;
               }
 
               // Otherwise just iterate to next selected option
@@ -387,11 +399,13 @@ GWS = function () {
           }
         }
       }
+
+      return variant;
     } }, { key: 'initCartSection', value: function initCartSection()
 
     {
       // Get DOM elements
-      this.cartProductHtml = this.$cartProduct[0].outerHTML;
+      this.cartItemHtml = this.$cartItem[0].outerHTML;
 
       // Bind functions
       this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
@@ -414,13 +428,19 @@ GWS = function () {
         this.$cartItemsContainer.html('');
 
         if (lineItems.length > 0) {
+          this.$cart.attr(this.cartEmptyAttr, false);
+
+          console.log(lineItems);
+
           this.generateCartItemsRows(lineItems);
           //this.bindCartInputs(lineItems);
           //this.generateCheckout(webUrl);
           //this.generateSubtotal();
           //this.updateSubtotal(subtotalPrice);
 
-          //this.bindRemoveItems();
+          this.bindRemoveItems();
+        } else {
+          this.$cart.attr(this.cartEmptyAttr, true);
         }
       }
     }
@@ -432,28 +452,48 @@ GWS = function () {
     items) {var _this4 = this;
       if (items.length) {
 
-        items.map(function (item) {
-          console.log(item);
-          var $cartItem = $(_this4.cartProductHtml);
+        items.forEach(function (item) {
+          if (!item.variant.available) {
+            // Item sold out
+            _this4.removeCartItems(item.id);
+            return;
+          }
+
+          // Get item markup and append as new element
+          var $cartItem = $(_this4.cartItemHtml);
           _this4.$cartItemsContainer.append($cartItem);
 
+          // Handle product id and post id
+          var productId = item.variant.product.id;
+          var postId = localStorage.getItem(productId);
+          $cartItem.attr(_this4.productIdAttr, item.variant.product.id);
+
+          // Set item ID to data attr
+          $cartItem.attr(_this4.cartItemIdAttr, item.id);
+
+          // Declare item elements
           var $cartThumb = $cartItem.find(_this4.cartThumbClass);
           var $cartTitle = $cartItem.find(_this4.cartTitleClass);
           var $cartVariantTitle = $cartItem.find(_this4.cartVariantTitleClass);
           var $cartQuantity = $cartItem.find(_this4.cartQuantityClass);
           var $cartSubtotal = $cartItem.find(_this4.cartSubtotalClass);
 
+          // Define item image and title
           var image = item.variant.image !== null ? '<img alt="' + item.title + '" src="' + item.variant.image.src + '" />' : '';
           var variantTitle = item.variant.title === 'Default Title' ? '' : item.variant.title;
 
+          // Fill item content if defined
           if ($cartThumb) {$cartThumb.html(image);}
-          if ($cartTitle) {$cartTitle.text(item.title);}
+          if ($cartTitle) {
+            var title = postId ? '<a href="' + WP.siteUrl + '/?p=' + postId + '">' + item.title + '</a>' : item.title;
+            $cartTitle.html(title);
+          }
           if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}
           if ($cartQuantity) {$cartQuantity.val(item.quantity);}
           if ($cartSubtotal) {$cartSubtotal.text(item.variant.price * item.quantity);}
         });
-      } else {
-        console.log('Bag empty');
+
+        this.$cartRemoveItem = $(this.cartRemoveClass);
       }
     } }, { key: 'generateCheckout', value: function generateCheckout(
 
@@ -499,15 +539,34 @@ GWS = function () {
     } }, { key: 'bindRemoveItems', value: function bindRemoveItems()
 
     {
-      this.$removeItem.on('click', this.handleRemoveItems);
+      this.$cartRemoveItem.on('click', this.handleRemoveItems);
     } }, { key: 'handleRemoveItems', value: function handleRemoveItems(
 
-    event) {var _this6 = this;
-      var productId = event.target.dataset.productId;
+    event) {
+      var $cartItem = $(event.target).closest(this.cartItemClass);
+      var cartItemId = $cartItem.attr(this.cartItemIdAttr);
+      var productId = $cartItem.attr(this.productIdAttr);
 
-      this.client.checkout.removeLineItems(this.checkout.id, [productId]).then(function (checkout) {
+      this.removeCartItems(cartItemId);
+      localStorage.removeItem(productId);
+    } }, { key: 'removeCartItems', value: function removeCartItems(
+
+    cartItemId) {var _this6 = this;
+      this.client.checkout.removeLineItems(this.checkout.id, [cartItemId]).then(function (checkout) {
         _this6.updateCart(checkout);
+        _this6.dispatchCartUpdateEvent('removed');
       });
+    } }, { key: 'dispatchCartUpdateEvent', value: function dispatchCartUpdateEvent(
+
+    context, variant) {
+      window.dispatchEvent(
+      new CustomEvent(this.cartUpdateEventType, {
+        detail: {
+          context: context,
+          variant: variant } }));
+
+
+
     } }]);return GWS;}();
 
 
