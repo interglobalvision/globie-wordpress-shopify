@@ -127,7 +127,8 @@ function gws_enqueue_scripts() {
 
   $javascriptVars = array(
     'domain' => !empty($shopify_domain) ? $shopify_domain : null,
-    'storefrontAccessToken' => !empty($shopify_token) ? $shopify_token : null
+    'storefrontAccessToken' => !empty($shopify_token) ? $shopify_token : null,
+    'siteUrl' => home_url()
   );
 
   wp_localize_script( 'gws_scripts', 'Shopify', $javascriptVars );
