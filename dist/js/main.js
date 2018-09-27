@@ -69,7 +69,7 @@
 
 "use strict";
 var _createClass = function () {function defineProperties(target, props) {for (var i = 0; i < props.length; i++) {var descriptor = props[i];descriptor.enumerable = descriptor.enumerable || false;descriptor.configurable = true;if ("value" in descriptor) descriptor.writable = true;Object.defineProperty(target, descriptor.key, descriptor);}}return function (Constructor, protoProps, staticProps) {if (protoProps) defineProperties(Constructor.prototype, protoProps);if (staticProps) defineProperties(Constructor, staticProps);return Constructor;};}(); /* jshint esversion: 6, browser: true, devel: true, indent: 2, curly: true, eqeqeq: true, futurehostile: true, latedef: true, undef: true, unused: true */
-/* global $, document, Shopify */
+/* global $, document, Shopify, WP */
 var _shopifyBuy = __webpack_require__(1);var _shopifyBuy2 = _interopRequireDefault(_shopifyBuy);
 var _jsCookie = __webpack_require__(2);var _jsCookie2 = _interopRequireDefault(_jsCookie);function _interopRequireDefault(obj) {return obj && obj.__esModule ? obj : { default: obj };}function _classCallCheck(instance, Constructor) {if (!(instance instanceof Constructor)) {throw new TypeError("Cannot call a class as a function");}}var
 
@@ -89,6 +89,7 @@ GWS = function () {
     this.variantSelectClass = '.gws-variant-select';
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
+    this.postIdAttr = 'data-gws-post-id';
 
     this.$cart = $('.gws-cart');
     this.$cartItemsContainer = $('.gws-cart-items');
@@ -105,6 +106,7 @@ GWS = function () {
     this.cartSubtotalClass = '.gws-cart-subtotal';
     this.cartUpdateEventType = 'gwsCartUpdate';
     this.cartEmptyAttr = 'data-gws-cart-empty';
+    this.productIdAttr = 'data-gws-product-id';
 
     $(window).
     resize(this.onResize.bind(this)) // Bind resize
@@ -212,10 +214,7 @@ GWS = function () {
           _this2.generateOptions(element, product.variants);
         }
 
-        // Bind functions
-        //this.handleAddToCart = this.handleAddToCart.bind(this, element, product.variants);
-
-        _this2.$addToCartButton.on('click', _this2.handleAddToCart.bind(_this2, element, product.variants));
+        _this2.$addToCartButton.on('click', _this2.handleAddToCart.bind(_this2, element, product));
       }).
       catch(function (error) {
         console.log(error);
@@ -226,8 +225,8 @@ GWS = function () {
     /**
        * Add item to Cart
        */ }, { key: 'handleAddToCart', value: function handleAddToCart(
-    element, variants) {var _this3 = this;
-      var itemsToAdd = this.getQuantityAndVariant(element, variants);
+    element, product) {var _this3 = this;
+      var itemsToAdd = this.getQuantityAndVariant(element, product.variants);
 
       if (itemsToAdd) {
         // Add an item to the checkout in shopify
@@ -236,11 +235,14 @@ GWS = function () {
           // Do something with the updated checkout
           _this3.dispatchCartUpdateEvent('added', checkout.lineItems[0].variant);
 
-          // Update cart count
-          _this3.updateCart(checkout);
-
           // Update cart
           _this3.updateCart(checkout);
+
+          // Add handle to localStorage
+          var postId = $(element).attr(_this3.postIdAttr);
+          if (postId) {
+            localStorage.setItem(product.id, postId);
+          }
         }).
         catch(function (error) {
           console.log(error);
@@ -428,6 +430,8 @@ GWS = function () {
         if (lineItems.length > 0) {
           this.$cart.attr(this.cartEmptyAttr, false);
 
+          console.log(lineItems);
+
           this.generateCartItemsRows(lineItems);
           //this.bindCartInputs(lineItems);
           //this.generateCheckout(webUrl);
@@ -459,6 +463,11 @@ GWS = function () {
           var $cartItem = $(_this4.cartItemHtml);
           _this4.$cartItemsContainer.append($cartItem);
 
+          // Handle product id and post id
+          var productId = item.variant.product.id;
+          var postId = localStorage.getItem(productId);
+          $cartItem.attr(_this4.productIdAttr, item.variant.product.id);
+
           // Set item ID to data attr
           $cartItem.attr(_this4.cartItemIdAttr, item.id);
 
@@ -469,15 +478,16 @@ GWS = function () {
           var $cartQuantity = $cartItem.find(_this4.cartQuantityClass);
           var $cartSubtotal = $cartItem.find(_this4.cartSubtotalClass);
 
-          console.log(item);
-
           // Define item image and title
           var image = item.variant.image !== null ? '<img alt="' + item.title + '" src="' + item.variant.image.src + '" />' : '';
           var variantTitle = item.variant.title === 'Default Title' ? '' : item.variant.title;
 
           // Fill item content if defined
           if ($cartThumb) {$cartThumb.html(image);}
-          if ($cartTitle) {$cartTitle.text(item.title);}
+          if ($cartTitle) {
+            var title = postId ? '<a href="' + WP.siteUrl + '/?p=' + postId + '">' + item.title + '</a>' : item.title;
+            $cartTitle.html(title);
+          }
           if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}
           if ($cartQuantity) {$cartQuantity.val(item.quantity);}
           if ($cartSubtotal) {$cartSubtotal.text(item.variant.price * item.quantity);}
@@ -533,8 +543,12 @@ GWS = function () {
     } }, { key: 'handleRemoveItems', value: function handleRemoveItems(
 
     event) {
-      var cartItemId = $(event.target).closest(this.cartItemClass).attr(this.cartItemIdAttr);
+      var $cartItem = $(event.target).closest(this.cartItemClass);
+      var cartItemId = $cartItem.attr(this.cartItemIdAttr);
+      var productId = $cartItem.attr(this.productIdAttr);
+
       this.removeCartItems(cartItemId);
+      localStorage.removeItem(productId);
     } }, { key: 'removeCartItems', value: function removeCartItems(
 
     cartItemId) {var _this6 = this;

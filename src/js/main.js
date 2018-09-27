@@ -1,5 +1,5 @@
 /* jshint esversion: 6, browser: true, devel: true, indent: 2, curly: true, eqeqeq: true, futurehostile: true, latedef: true, undef: true, unused: true */
-/* global $, document, Shopify */
+/* global $, document, Shopify, WP */
 import Client from 'shopify-buy';
 import Cookies from 'js-cookie';
 
@@ -19,6 +19,7 @@ class GWS {
     this.variantSelectClass = '.gws-variant-select';
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
+    this.postIdAttr = 'data-gws-post-id';
 
     this.$cart = $('.gws-cart');
     this.$cartItemsContainer = $('.gws-cart-items');
@@ -35,6 +36,7 @@ class GWS {
     this.cartSubtotalClass = '.gws-cart-subtotal';
     this.cartUpdateEventType = 'gwsCartUpdate';
     this.cartEmptyAttr = 'data-gws-cart-empty';
+    this.productIdAttr = 'data-gws-product-id';
 
     $(window)
       .resize(this.onResize.bind(this)) // Bind resize
@@ -142,10 +144,7 @@ class GWS {
           this.generateOptions(element, product.variants);
         }
 
-        // Bind functions
-        //this.handleAddToCart = this.handleAddToCart.bind(this, element, product.variants);
-
-        this.$addToCartButton.on('click', this.handleAddToCart.bind(this, element, product.variants));
+        this.$addToCartButton.on('click', this.handleAddToCart.bind(this, element, product));
       })
       .catch( error => {
         console.log(error);
@@ -156,8 +155,8 @@ class GWS {
   /**
    * Add item to Cart
    */
-  handleAddToCart(element, variants) {
-    const itemsToAdd = this.getQuantityAndVariant(element, variants);
+  handleAddToCart(element, product) {
+    const itemsToAdd = this.getQuantityAndVariant(element, product.variants);
 
     if (itemsToAdd) {
       // Add an item to the checkout in shopify
@@ -166,11 +165,14 @@ class GWS {
           // Do something with the updated checkout
           this.dispatchCartUpdateEvent('added', checkout.lineItems[0].variant);
 
-          // Update cart count
-          this.updateCart(checkout);
-
           // Update cart
           this.updateCart(checkout);
+
+          // Add handle to localStorage
+          const postId = $(element).attr(this.postIdAttr);
+          if (postId) {
+            localStorage.setItem(product.id, postId);
+          }
         })
         .catch( error => {
           console.log(error);
@@ -358,6 +360,8 @@ class GWS {
       if (lineItems.length > 0) {
         this.$cart.attr(this.cartEmptyAttr, false);
 
+        console.log(lineItems);
+
         this.generateCartItemsRows(lineItems);
         //this.bindCartInputs(lineItems);
         //this.generateCheckout(webUrl);
@@ -389,6 +393,11 @@ class GWS {
         const $cartItem = $(this.cartItemHtml);
         this.$cartItemsContainer.append($cartItem);
 
+        // Handle product id and post id
+        const productId = item.variant.product.id;
+        const postId = localStorage.getItem(productId);
+        $cartItem.attr(this.productIdAttr, item.variant.product.id);
+
         // Set item ID to data attr
         $cartItem.attr(this.cartItemIdAttr, item.id);
 
@@ -399,15 +408,16 @@ class GWS {
         const $cartQuantity = $cartItem.find(this.cartQuantityClass);
         const $cartSubtotal = $cartItem.find(this.cartSubtotalClass);
 
-        console.log(item);
-
         // Define item image and title
         const image = item.variant.image !== null ? `<img alt="${item.title}" src="${item.variant.image.src}" />` : ``;
-        const variantTitle = item.variant.title === `Default Title` ? `` : item.variant.title;
+        const variantTitle = item.variant.title === 'Default Title' ? '' : item.variant.title;
 
         // Fill item content if defined
         if ($cartThumb) {$cartThumb.html(image);}
-        if ($cartTitle) {$cartTitle.text(item.title);}
+        if ($cartTitle) {
+          const title = postId ? `<a href="${WP.siteUrl}/?p=${postId}">${item.title}</a>` : item.title;
+          $cartTitle.html(title);
+        }
         if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}
         if ($cartQuantity) {$cartQuantity.val(item.quantity);}
         if ($cartSubtotal) {$cartSubtotal.text(item.variant.price * item.quantity);}
@@ -463,8 +473,12 @@ class GWS {
   }
 
   handleRemoveItems(event) {
-    const cartItemId = $(event.target).closest(this.cartItemClass).attr(this.cartItemIdAttr);
+    const $cartItem = $(event.target).closest(this.cartItemClass);
+    const cartItemId = $cartItem.attr(this.cartItemIdAttr);
+    const productId = $cartItem.attr(this.productIdAttr);
+
     this.removeCartItems(cartItemId);
+    localStorage.removeItem(productId);
   }
 
   removeCartItems(cartItemId) {
