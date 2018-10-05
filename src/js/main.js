@@ -33,10 +33,12 @@ class GWS {
     this.cartVariantTitleClass = '.gws-cart-variant-title';
     this.cartPriceClass = '.gws-cart-price';
     this.cartQuantityClass = '.gws-cart-quantity';
-    this.cartSubtotalClass = '.gws-cart-subtotal';
+    this.cartItemSubtotalClass = '.gws-cart-item-subtotal';
+    this.cartSubtotalSelector = '#gws-cart-subtotal';
     this.cartUpdateEventType = 'gwsCartUpdate';
     this.cartEmptyAttr = 'data-gws-cart-empty';
     this.productIdAttr = 'data-gws-product-id';
+    this.cartCheckoutSelector = '.gws-checkout-link';
 
     $(window)
       .resize(this.onResize.bind(this)) // Bind resize
@@ -167,6 +169,10 @@ class GWS {
 
           // Update cart
           this.updateCart(checkout);
+
+          const productInCart = localStorage.getItem(product.id);
+
+          console.log(productInCart);
 
           // Add handle to localStorage
           const postId = $(element).attr(this.postIdAttr);
@@ -364,11 +370,10 @@ class GWS {
 
         this.generateCartItemsRows(lineItems);
         //this.bindCartInputs(lineItems);
-        //this.generateCheckout(webUrl);
-        //this.generateSubtotal();
-        //this.updateSubtotal(subtotalPrice);
-
+        this.updateSubtotal(subtotalPrice);
         this.bindRemoveItems();
+
+        $(this.cartCheckoutSelector).attr('href', webUrl);
       } else {
         this.$cart.attr(this.cartEmptyAttr, true);
       }
@@ -406,14 +411,14 @@ class GWS {
         const $cartTitle = $cartItem.find(this.cartTitleClass);
         const $cartVariantTitle = $cartItem.find(this.cartVariantTitleClass);
         const $cartQuantity = $cartItem.find(this.cartQuantityClass);
-        const $cartSubtotal = $cartItem.find(this.cartSubtotalClass);
+        const $cartSubtotal = $cartItem.find(this.cartItemSubtotalClass);
 
         // Define item image and title
-        const image = item.variant.image !== null ? `<img alt="${item.title}" src="${item.variant.image.src}" />` : ``;
+        const imageSrc = item.variant.image !== null ? item.variant.image.src : '';
         const variantTitle = item.variant.title === 'Default Title' ? '' : item.variant.title;
 
         // Fill item content if defined
-        if ($cartThumb) {$cartThumb.html(image);}
+        if ($cartThumb) {$cartThumb.css('background-image', 'url(\'' + imageSrc + '\')');}
         if ($cartTitle) {
           const title = postId ? `<a href="${WP.siteUrl}/?p=${postId}">${item.title}</a>` : item.title;
           $cartTitle.html(title);
@@ -427,23 +432,8 @@ class GWS {
     }
   }
 
-  generateCheckout(checkoutUrl) {
-    this.$checkoutContainer.append(`<a href="${checkoutUrl}" class="font-uppercase font-medium">Checkout</a>`);
-  }
-
-  generateSubtotal() {
-    this.$subtotalContainer.append(`
-      <div class="grid-item item-s-8 text-align-right font-uppercase">
-        Subtotal:
-      </div>
-      <div class="grid-item item-s-4">
-        $<span id="subtotal"></span>
-      </div>
-    `);
-  }
-
   updateSubtotal(price) {
-    $('#subtotal').text(price);
+    $(this.cartSubtotalSelector).text(price);
   }
 
   bindCartInputs() {

@@ -103,10 +103,12 @@ GWS = function () {
     this.cartVariantTitleClass = '.gws-cart-variant-title';
     this.cartPriceClass = '.gws-cart-price';
     this.cartQuantityClass = '.gws-cart-quantity';
-    this.cartSubtotalClass = '.gws-cart-subtotal';
+    this.cartItemSubtotalClass = '.gws-cart-item-subtotal';
+    this.cartSubtotalSelector = '#gws-cart-subtotal';
     this.cartUpdateEventType = 'gwsCartUpdate';
     this.cartEmptyAttr = 'data-gws-cart-empty';
     this.productIdAttr = 'data-gws-product-id';
+    this.cartCheckoutSelector = '.gws-checkout-link';
 
     $(window).
     resize(this.onResize.bind(this)) // Bind resize
@@ -237,6 +239,10 @@ GWS = function () {
 
           // Update cart
           _this3.updateCart(checkout);
+
+          var productInCart = localStorage.getItem(product.id);
+
+          console.log(productInCart);
 
           // Add handle to localStorage
           var postId = $(element).attr(_this3.postIdAttr);
@@ -434,11 +440,10 @@ GWS = function () {
 
           this.generateCartItemsRows(lineItems);
           //this.bindCartInputs(lineItems);
-          //this.generateCheckout(webUrl);
-          //this.generateSubtotal();
-          //this.updateSubtotal(subtotalPrice);
-
+          this.updateSubtotal(subtotalPrice);
           this.bindRemoveItems();
+
+          $(this.cartCheckoutSelector).attr('href', webUrl);
         } else {
           this.$cart.attr(this.cartEmptyAttr, true);
         }
@@ -476,14 +481,14 @@ GWS = function () {
           var $cartTitle = $cartItem.find(_this4.cartTitleClass);
           var $cartVariantTitle = $cartItem.find(_this4.cartVariantTitleClass);
           var $cartQuantity = $cartItem.find(_this4.cartQuantityClass);
-          var $cartSubtotal = $cartItem.find(_this4.cartSubtotalClass);
+          var $cartSubtotal = $cartItem.find(_this4.cartItemSubtotalClass);
 
           // Define item image and title
-          var image = item.variant.image !== null ? '<img alt="' + item.title + '" src="' + item.variant.image.src + '" />' : '';
+          var imageSrc = item.variant.image !== null ? item.variant.image.src : '';
           var variantTitle = item.variant.title === 'Default Title' ? '' : item.variant.title;
 
           // Fill item content if defined
-          if ($cartThumb) {$cartThumb.html(image);}
+          if ($cartThumb) {$cartThumb.css('background-image', 'url(\'' + imageSrc + '\')');}
           if ($cartTitle) {
             var title = postId ? '<a href="' + WP.siteUrl + '/?p=' + postId + '">' + item.title + '</a>' : item.title;
             $cartTitle.html(title);
@@ -495,25 +500,10 @@ GWS = function () {
 
         this.$cartRemoveItem = $(this.cartRemoveClass);
       }
-    } }, { key: 'generateCheckout', value: function generateCheckout(
-
-    checkoutUrl) {
-      this.$checkoutContainer.append('<a href="' + checkoutUrl + '" class="font-uppercase font-medium">Checkout</a>');
-    } }, { key: 'generateSubtotal', value: function generateSubtotal()
-
-    {
-      this.$subtotalContainer.append('\n      <div class="grid-item item-s-8 text-align-right font-uppercase">\n        Subtotal:\n      </div>\n      <div class="grid-item item-s-4">\n        $<span id="subtotal"></span>\n      </div>\n    ');
-
-
-
-
-
-
-
     } }, { key: 'updateSubtotal', value: function updateSubtotal(
 
     price) {
-      $('#subtotal').text(price);
+      $(this.cartSubtotalSelector).text(price);
     } }, { key: 'bindCartInputs', value: function bindCartInputs()
 
     {
