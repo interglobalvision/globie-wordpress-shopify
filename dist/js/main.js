@@ -90,6 +90,7 @@ GWS = function () {
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
     this.postIdAttr = 'data-gws-post-id';
+    this.productInCartAttr = 'data-gws-in-cart';
 
     this.$cart = $('.gws-cart');
     this.$cartItemsContainer = $('.gws-cart-items');
@@ -211,6 +212,9 @@ GWS = function () {
           _this2.updateProductVariant(element, product.variants[0]);
         }
 
+        var productInCart = localStorage.getItem(product.id) ? true : false;
+        _this2.updateProductInCartStatus(element, productInCart);
+
         // Generate variation selector
         if (product.variants.length > 1) {
           _this2.generateOptions(element, product.variants);
@@ -222,6 +226,19 @@ GWS = function () {
         console.log(error);
       });
 
+    } }, { key: 'updateProductInCartStatus', value: function updateProductInCartStatus(
+
+    element, status) {
+      var attrValue = status ? 'true' : 'false';
+      $(element).attr(this.productInCartAttr, attrValue);
+    } }, { key: 'getProductInCartStatus', value: function getProductInCartStatus(
+
+    element) {
+      var status = $(element).attr(this.productInCartAttr);
+      if (status === 'true') {
+        return true;
+      }
+      return false;
     }
 
     /**
@@ -229,8 +246,9 @@ GWS = function () {
        */ }, { key: 'handleAddToCart', value: function handleAddToCart(
     element, product) {var _this3 = this;
       var itemsToAdd = this.getQuantityAndVariant(element, product.variants);
+      var productInCart = this.getProductInCartStatus(element);
 
-      if (itemsToAdd) {
+      if (itemsToAdd && !productInCart) {
         // Add an item to the checkout in shopify
         this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd]).
         then(function (checkout) {
@@ -240,20 +258,20 @@ GWS = function () {
           // Update cart
           _this3.updateCart(checkout);
 
-          var productInCart = localStorage.getItem(product.id);
-
-          console.log(productInCart);
-
           // Add handle to localStorage
           var postId = $(element).attr(_this3.postIdAttr);
           if (postId) {
             localStorage.setItem(product.id, postId);
           }
+
+          _this3.updateProductInCartStatus(element, true);
         }).
         catch(function (error) {
           console.log(error);
         });
 
+      } else if (productInCart) {
+        this.dispatchCartUpdateEvent('incart', false);
       } else {
         $('#out-of-stock').addClass('show');
       }

@@ -20,6 +20,7 @@ class GWS {
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
     this.postIdAttr = 'data-gws-post-id';
+    this.productInCartAttr = 'data-gws-in-cart';
 
     this.$cart = $('.gws-cart');
     this.$cartItemsContainer = $('.gws-cart-items');
@@ -141,6 +142,9 @@ class GWS {
           this.updateProductVariant(element, product.variants[0]);
         }
 
+        const productInCart = localStorage.getItem(product.id) ? true : false;
+        this.updateProductInCartStatus(element, productInCart);
+
         // Generate variation selector
         if (product.variants.length > 1) {
           this.generateOptions(element, product.variants);
@@ -154,13 +158,27 @@ class GWS {
 
   }
 
+  updateProductInCartStatus(element, status) {
+    const attrValue = status ? 'true' : 'false';
+    $(element).attr(this.productInCartAttr, attrValue);
+  }
+
+  getProductInCartStatus(element) {
+    const status = $(element).attr(this.productInCartAttr);
+    if (status === 'true') {
+      return true;
+    }
+    return false;
+  }
+
   /**
    * Add item to Cart
    */
   handleAddToCart(element, product) {
     const itemsToAdd = this.getQuantityAndVariant(element, product.variants);
+    const productInCart = this.getProductInCartStatus(element);
 
-    if (itemsToAdd) {
+    if (itemsToAdd && !productInCart) {
       // Add an item to the checkout in shopify
       this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd])
         .then((checkout) => {
@@ -170,20 +188,20 @@ class GWS {
           // Update cart
           this.updateCart(checkout);
 
-          const productInCart = localStorage.getItem(product.id);
-
-          console.log(productInCart);
-
           // Add handle to localStorage
           const postId = $(element).attr(this.postIdAttr);
           if (postId) {
             localStorage.setItem(product.id, postId);
           }
+
+          this.updateProductInCartStatus(element, true);
         })
         .catch( error => {
           console.log(error);
         });
 
+    } else if (productInCart) {
+      this.dispatchCartUpdateEvent('incart', false);
     } else {
       $('#out-of-stock').addClass('show');
     }
