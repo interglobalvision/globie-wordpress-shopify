@@ -24,6 +24,7 @@ function gws_init() {
 }
 
 function gws_register_post_types() {
+  $archive_slug = gws_get_option('_gws_shopify_archive_slug') === false || empty(gws_get_option('_gws_shopify_archive_slug')) ? 'shop' : gws_get_option('_gws_shopify_archive_slug');
 
   $labels = array(
     'name' => _x( 'Products', 'product' ),
@@ -51,7 +52,7 @@ function gws_register_post_types() {
     'show_in_nav_menus' => true,
     'publicly_queryable' => true,
     'exclude_from_search' => false,
-    'has_archive' => 'shop',
+    'has_archive' => $archive_slug,
     'query_var' => true,
     'can_export' => true,
     'rewrite' => true,
@@ -112,6 +113,13 @@ function gws_register_settings() {
   $shop_options->add_field( array(
     'name'    => esc_html__( 'Shopify StoreFront Access Token', 'igv' ),
     'id'      => $prefix . 'shopify_token',
+    'type'    => 'text',
+  ) );
+
+  $shop_options->add_field( array(
+    'name'    => esc_html__( 'Archive Slug', 'igv' ),
+    'desc'    => esc_html__( 'Defaults to \'shop\'. You must update permalinks after changing.', 'igv' ),
+    'id'      => $prefix . 'shopify_archive_slug',
     'type'    => 'text',
   ) );
 
