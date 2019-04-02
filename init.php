@@ -3,7 +3,7 @@
 Plugin Name:  Globie Wordpress Shopify
 Plugin URI:   https://github.com/interglobalvision/globie-wordpress-shopify
 Description:  Shopify integration for Wordpress
-Version:      1.0.0
+Version:      1.0.1
 Author:       WordPress.org
 Author URI:   https://interglobal.vision/
 License:      GPL2
