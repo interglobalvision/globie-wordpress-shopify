@@ -26,6 +26,8 @@ function gws_init() {
 function gws_register_post_types() {
   $archive_slug = gws_get_option('_gws_shopify_archive_slug') === false || empty(gws_get_option('_gws_shopify_archive_slug')) ? 'shop' : gws_get_option('_gws_shopify_archive_slug');
 
+  $item_slug = gws_get_option('_gws_shopify_item_slug') === false || empty(gws_get_option('_gws_shopify_item_slug')) ? 'product' : gws_get_option('_gws_shopify_item_slug');
+
   $labels = array(
     'name' => _x( 'Products', 'product' ),
     'singular_name' => _x( 'Product', 'product' ),
@@ -55,7 +57,7 @@ function gws_register_post_types() {
     'has_archive' => $archive_slug,
     'query_var' => true,
     'can_export' => true,
-    'rewrite' => true,
+    'rewrite' => array('slug' => $item_slug, 'with_front' => false),
     'capability_type' => 'post'
   );
 
@@ -120,6 +122,13 @@ function gws_register_settings() {
     'name'    => esc_html__( 'Archive Slug', 'igv' ),
     'desc'    => esc_html__( 'Defaults to \'shop\'. You must update permalinks after changing.', 'igv' ),
     'id'      => $prefix . 'shopify_archive_slug',
+    'type'    => 'text',
+  ) );
+
+  $shop_options->add_field( array(
+    'name'    => esc_html__( 'Item Slug', 'igv' ),
+    'desc'    => esc_html__( 'Defaults to \'product\'. You must update permalinks after changing.', 'igv' ),
+    'id'      => $prefix . 'shopify_item_slug',
     'type'    => 'text',
   ) );
 
