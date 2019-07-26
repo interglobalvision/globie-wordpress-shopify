@@ -141,11 +141,13 @@ function gws_enqueue_scripts() {
 
   $shopify_domain = gws_get_option('_gws_shopify_domain');
   $shopify_token = gws_get_option('_gws_shopify_token');
+  $shopify_item_slug = gws_get_option('_gws_shopify_item_slug');
 
   $javascriptVars = array(
     'domain' => !empty($shopify_domain) ? $shopify_domain : null,
     'storefrontAccessToken' => !empty($shopify_token) ? $shopify_token : null,
-    'siteUrl' => home_url()
+    'siteUrl' => home_url(),
+    'itemSlug' => !empty($shopify_item_slug) ? $shopify_item_slug : null,
   );
 
   wp_localize_script( 'gws_scripts', 'Shopify', $javascriptVars );

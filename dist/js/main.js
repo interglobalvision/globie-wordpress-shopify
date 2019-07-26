@@ -124,6 +124,7 @@ GWS = function () {
     {
 
       // Check shopify api data
+      console.log(Shopify.domain);
       if (Shopify.domain !== null && Shopify.storefrontAccessToken !== null) {var _Shopify =
         Shopify,domain = _Shopify.domain,storefrontAccessToken = _Shopify.storefrontAccessToken;
 
@@ -508,7 +509,8 @@ GWS = function () {
           // Fill item content if defined
           if ($cartThumb) {$cartThumb.css('background-image', 'url(\'' + imageSrc + '\')');}
           if ($cartTitle) {
-            var title = postId ? '<a href="' + WP.siteUrl + '/?p=' + postId + '">' + item.title + '</a>' : item.title;
+            var path = Shopify.itemSlug ? Shopify.itemSlug + '/' : '?p=';
+            var title = postId ? '<a href="' + WP.siteUrl + '/' + path + postId + '">' + item.title + '</a>' : item.title;
             $cartTitle.html(title);
           }
           if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}

@@ -54,6 +54,7 @@ class GWS {
   onReady() {
 
     // Check shopify api data
+    console.log(Shopify.domain);
     if(Shopify.domain !== null && Shopify.storefrontAccessToken !== null) {
       const { domain, storefrontAccessToken } = Shopify;
 
@@ -438,7 +439,8 @@ class GWS {
         // Fill item content if defined
         if ($cartThumb) {$cartThumb.css('background-image', 'url(\'' + imageSrc + '\')');}
         if ($cartTitle) {
-          const title = postId ? `<a href="${WP.siteUrl}/?p=${postId}">${item.title}</a>` : item.title;
+          const path = Shopify.itemSlug ? Shopify.itemSlug + '/' : '?p=';
+          const title = postId ? `<a href="${WP.siteUrl}/${path}${postId}">${item.title}</a>` : item.title;
           $cartTitle.html(title);
         }
         if ($cartVariantTitle) {$cartVariantTitle.text(variantTitle);}
