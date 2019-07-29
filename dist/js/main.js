@@ -124,7 +124,6 @@ GWS = function () {
     {
 
       // Check shopify api data
-      console.log(Shopify.domain);
       if (Shopify.domain !== null && Shopify.storefrontAccessToken !== null) {var _Shopify =
         Shopify,domain = _Shopify.domain,storefrontAccessToken = _Shopify.storefrontAccessToken;
 

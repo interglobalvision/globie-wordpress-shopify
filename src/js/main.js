@@ -54,7 +54,6 @@ class GWS {
   onReady() {
 
     // Check shopify api data
-    console.log(Shopify.domain);
     if(Shopify.domain !== null && Shopify.storefrontAccessToken !== null) {
       const { domain, storefrontAccessToken } = Shopify;
 
