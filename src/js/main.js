@@ -34,6 +34,8 @@ class GWS {
     this.cartVariantTitleClass = '.gws-cart-variant-title';
     this.cartPriceClass = '.gws-cart-price';
     this.cartQuantityClass = '.gws-cart-quantity';
+    this.cartAttributeClass = '.gws-cart-attribute';
+    this.cartAttributeKey = 'data-gws-cart-attr-key';
     this.cartItemSubtotalClass = '.gws-cart-item-subtotal';
     this.cartSubtotalSelector = '#gws-cart-subtotal';
     this.cartUpdateEventType = 'gwsCartUpdate';
@@ -364,6 +366,7 @@ class GWS {
     // Bind functions
     this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
     this.handleRemoveItems = this.handleRemoveItems.bind(this); // Bind remove item button
+    this.handleCartAttributeUpdate = this.handleCartAttributeUpdate.bind(this); // Bind attribute update
   }
 
   /**
@@ -384,10 +387,8 @@ class GWS {
       if (lineItems.length > 0) {
         this.$cart.attr(this.cartEmptyAttr, false);
 
-        console.log(lineItems);
-
         this.generateCartItemsRows(lineItems);
-        //this.bindCartInputs(lineItems);
+        this.bindCartInputs(lineItems);
         this.updateSubtotal(subtotalPrice);
         this.bindRemoveItems();
 
@@ -456,12 +457,13 @@ class GWS {
   }
 
   bindCartInputs() {
-    $('.cart-item-quantity').on('change', this.handleCartQuantity);
+    $(this.cartQuantityClass).on('change', this.handleCartQuantity);
+    $(this.cartAttributeClass).on('change', this.handleCartAttributeUpdate);
   }
 
-  handleCartQuantity(event) {
-    const productId =  event.target.dataset.productId;
-    const quantity = parseInt(event.target.value);
+  handleCartQuantity(e) {
+    const productId = $(e.target).closest(this.cartItemClass).attr(this.productIdAttr);
+    const quantity = parseInt(e.target.value);
 
     const productToUpdate = {
       id: productId,
@@ -474,6 +476,16 @@ class GWS {
         // Do something with the updated checkout
         console.log(checkout); // Quantity of line item 'Z2lkOi8vc2hvcGlmeS9Qcm9kdWN0Lzc4NTc5ODkzODQ=' updated to 2
         this.updateSubtotal(checkout.subtotalPrice);
+    });
+  }
+
+  handleCartAttributeUpdate(e) {
+    const key = $(e.target).attr(this.cartAttributeKey);
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    const input = {customAttributes: [{key: key, value: value}]};
+
+    this.client.checkout.updateAttributes(this.checkout.id, input).then((checkout) => {
+      console.log(checkout);
     });
   }
 
