@@ -453,6 +453,7 @@ class GWS {
   }
 
   updateSubtotal(price) {
+    console.log(price)
     $(this.cartSubtotalSelector).text(price);
   }
 
@@ -462,14 +463,20 @@ class GWS {
   }
 
   handleCartQuantity(e) {
-    const id = $(e.target).closest(this.cartItemClass).attr(this.cartItemIdAttr);
-    const quantity = parseInt(e.target.value);
+    var $cartItem = $(e.target).closest(this.cartItemClass)
+    var $cartItemSubtotal = $cartItem.find(this.cartItemSubtotalClass);
+    var cartItemId = $cartItem.attr(this.cartItemIdAttr);
+    var quantity = parseInt(e.target.value);
 
     // Update the line item on the checkout (change the quantity or variant)
-    this.client.checkout.updateLineItems(this.checkout.id, [{id, quantity}]).then((checkout) => {
-        // Do something with the updated checkout
-        console.log(checkout); // Quantity of line item 'Z2lkOi8vc2hvcGlmeS9Qcm9kdWN0Lzc4NTc5ODkzODQ=' updated to 2
-        this.updateSubtotal(checkout.subtotalPrice);
+    this.client.checkout.updateLineItems(this.checkout.id, [{id: cartItemId, quantity}]).then((checkout) => {
+      // Do something with the updated checkout
+      console.log(checkout); // Quantity of line item 'Z2lkOi8vc2hvcGlmeS9Qcm9kdWN0Lzc4NTc5ODkzODQ=' updated to 2
+      var item = checkout.lineItems.find(function(item) {
+        return item.id === cartItemId;
+      });
+      $cartItemSubtotal.text(item.quantity * item.variant.price);
+      this.updateSubtotal(checkout.subtotalPrice);
     });
   }
 

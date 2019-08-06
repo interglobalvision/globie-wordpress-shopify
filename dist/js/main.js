@@ -523,6 +523,7 @@ GWS = function () {
     } }, { key: 'updateSubtotal', value: function updateSubtotal(
 
     price) {
+      console.log(price);
       $(this.cartSubtotalSelector).text(price);
     } }, { key: 'bindCartInputs', value: function bindCartInputs()
 
@@ -532,13 +533,19 @@ GWS = function () {
     } }, { key: 'handleCartQuantity', value: function handleCartQuantity(
 
     e) {var _this5 = this;
-      var id = $(e.target).closest(this.cartItemClass).attr(this.cartItemIdAttr);
+      var $cartItem = $(e.target).closest(this.cartItemClass);
+      var $cartItemSubtotal = $cartItem.find(this.cartItemSubtotalClass);
+      var cartItemId = $cartItem.attr(this.cartItemIdAttr);
       var quantity = parseInt(e.target.value);
 
       // Update the line item on the checkout (change the quantity or variant)
-      this.client.checkout.updateLineItems(this.checkout.id, [{ id: id, quantity: quantity }]).then(function (checkout) {
+      this.client.checkout.updateLineItems(this.checkout.id, [{ id: cartItemId, quantity: quantity }]).then(function (checkout) {
         // Do something with the updated checkout
         console.log(checkout); // Quantity of line item 'Z2lkOi8vc2hvcGlmeS9Qcm9kdWN0Lzc4NTc5ODkzODQ=' updated to 2
+        var item = checkout.lineItems.find(function (item) {
+          return item.id === cartItemId;
+        });
+        $cartItemSubtotal.text(item.quantity * item.variant.price);
         _this5.updateSubtotal(checkout.subtotalPrice);
       });
     } }, { key: 'handleCartAttributeUpdate', value: function handleCartAttributeUpdate(
