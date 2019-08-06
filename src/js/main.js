@@ -462,17 +462,11 @@ class GWS {
   }
 
   handleCartQuantity(e) {
-    const productId = $(e.target).closest(this.cartItemClass).attr(this.productIdAttr);
+    const id = $(e.target).closest(this.cartItemClass).attr(this.cartItemIdAttr);
     const quantity = parseInt(e.target.value);
 
-    const productToUpdate = {
-      id: productId,
-      quantity,
-    };
-
     // Update the line item on the checkout (change the quantity or variant)
-    this.client.checkout.updateLineItems(this.checkout.id, [productToUpdate])
-      .then((checkout) => {
+    this.client.checkout.updateLineItems(this.checkout.id, [{id, quantity}]).then((checkout) => {
         // Do something with the updated checkout
         console.log(checkout); // Quantity of line item 'Z2lkOi8vc2hvcGlmeS9Qcm9kdWN0Lzc4NTc5ODkzODQ=' updated to 2
         this.updateSubtotal(checkout.subtotalPrice);
@@ -481,8 +475,8 @@ class GWS {
 
   handleCartAttributeUpdate(e) {
     const key = $(e.target).attr(this.cartAttributeKey);
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    const input = {customAttributes: [{key: key, value: value}]};
+    const value = e.target.type === 'checkbox' ? e.target.checked.toString() : e.target.value;
+    const input = {customAttributes: [{key, value}]};
 
     this.client.checkout.updateAttributes(this.checkout.id, input).then((checkout) => {
       console.log(checkout);

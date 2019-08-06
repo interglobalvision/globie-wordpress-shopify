@@ -532,17 +532,11 @@ GWS = function () {
     } }, { key: 'handleCartQuantity', value: function handleCartQuantity(
 
     e) {var _this5 = this;
-      var productId = $(e.target).closest(this.cartItemClass).attr(this.productIdAttr);
+      var id = $(e.target).closest(this.cartItemClass).attr(this.cartItemIdAttr);
       var quantity = parseInt(e.target.value);
 
-      var productToUpdate = {
-        id: productId,
-        quantity: quantity };
-
-
       // Update the line item on the checkout (change the quantity or variant)
-      this.client.checkout.updateLineItems(this.checkout.id, [productToUpdate]).
-      then(function (checkout) {
+      this.client.checkout.updateLineItems(this.checkout.id, [{ id: id, quantity: quantity }]).then(function (checkout) {
         // Do something with the updated checkout
         console.log(checkout); // Quantity of line item 'Z2lkOi8vc2hvcGlmeS9Qcm9kdWN0Lzc4NTc5ODkzODQ=' updated to 2
         _this5.updateSubtotal(checkout.subtotalPrice);
@@ -551,7 +545,7 @@ GWS = function () {
 
     e) {
       var key = $(e.target).attr(this.cartAttributeKey);
-      var value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+      var value = e.target.type === 'checkbox' ? e.target.checked.toString() : e.target.value;
       var input = { customAttributes: [{ key: key, value: value }] };
 
       this.client.checkout.updateAttributes(this.checkout.id, input).then(function (checkout) {
