@@ -104,6 +104,8 @@ GWS = function () {
     this.cartVariantTitleClass = '.gws-cart-variant-title';
     this.cartPriceClass = '.gws-cart-price';
     this.cartQuantityClass = '.gws-cart-quantity';
+    this.cartAttributeClass = '.gws-cart-attribute';
+    this.cartAttributeKey = 'data-gws-cart-attr-key';
     this.cartItemSubtotalClass = '.gws-cart-item-subtotal';
     this.cartSubtotalSelector = '#gws-cart-subtotal';
     this.cartUpdateEventType = 'gwsCartUpdate';
@@ -434,6 +436,7 @@ GWS = function () {
       // Bind functions
       this.handleCartQuantity = this.handleCartQuantity.bind(this); // Bind the quantity selector
       this.handleRemoveItems = this.handleRemoveItems.bind(this); // Bind remove item button
+      this.handleCartAttributeUpdate = this.handleCartAttributeUpdate.bind(this); // Bind attribute update
     }
 
     /**
@@ -454,10 +457,8 @@ GWS = function () {
         if (lineItems.length > 0) {
           this.$cart.attr(this.cartEmptyAttr, false);
 
-          console.log(lineItems);
-
           this.generateCartItemsRows(lineItems);
-          //this.bindCartInputs(lineItems);
+          this.bindCartInputs(lineItems);
           this.updateSubtotal(subtotalPrice);
           this.bindRemoveItems();
 
@@ -526,12 +527,13 @@ GWS = function () {
     } }, { key: 'bindCartInputs', value: function bindCartInputs()
 
     {
-      $('.cart-item-quantity').on('change', this.handleCartQuantity);
+      $(this.cartQuantityClass).on('change', this.handleCartQuantity);
+      $(this.cartAttributeClass).on('change', this.handleCartAttributeUpdate);
     } }, { key: 'handleCartQuantity', value: function handleCartQuantity(
 
-    event) {var _this5 = this;
-      var productId = event.target.dataset.productId;
-      var quantity = parseInt(event.target.value);
+    e) {var _this5 = this;
+      var productId = $(e.target).closest(this.cartItemClass).attr(this.productIdAttr);
+      var quantity = parseInt(e.target.value);
 
       var productToUpdate = {
         id: productId,
@@ -544,6 +546,16 @@ GWS = function () {
         // Do something with the updated checkout
         console.log(checkout); // Quantity of line item 'Z2lkOi8vc2hvcGlmeS9Qcm9kdWN0Lzc4NTc5ODkzODQ=' updated to 2
         _this5.updateSubtotal(checkout.subtotalPrice);
+      });
+    } }, { key: 'handleCartAttributeUpdate', value: function handleCartAttributeUpdate(
+
+    e) {
+      var key = $(e.target).attr(this.cartAttributeKey);
+      var value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+      var input = { customAttributes: [{ key: key, value: value }] };
+
+      this.client.checkout.updateAttributes(this.checkout.id, input).then(function (checkout) {
+        console.log(checkout);
       });
     } }, { key: 'bindRemoveItems', value: function bindRemoveItems()
 
