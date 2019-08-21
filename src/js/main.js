@@ -17,6 +17,7 @@ class GWS {
     this.priceWrapperClass = '.gws-product-price';
     this.quantitySelectClass = '.gws-quantity-select';
     this.variantSelectClass = '.gws-variant-select';
+    this.producePriceAttr = 'data-gws-price';
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
     this.postIdAttr = 'data-gws-post-id';
@@ -245,18 +246,14 @@ class GWS {
 
     if (variant) {
       if ($priceWrapper.length) {
-        this.setVariantPrice($priceWrapper, variant);
+        const price = variant.compareAtPrice ? variant.compareAtPrice : variant.price;
+        $priceWrapper.html(price);
+        $(element).attr(this.producePriceAttr, price);
       }
       if ($variantIdInput.length) {
         this.setVariantId($variantIdInput, variant);
       }
     }
-  }
-
-  setVariantPrice($priceWrapper, variant) {
-    const price = variant.compareAtPrice ? variant.compareAtPrice : variant.price;
-
-    $priceWrapper.html(price);
   }
 
   setVariantId($variantIdInput, variant) {
@@ -453,7 +450,6 @@ class GWS {
   }
 
   updateSubtotal(price) {
-    console.log(price)
     $(this.cartSubtotalSelector).text(price);
   }
 
@@ -463,7 +459,7 @@ class GWS {
   }
 
   handleCartQuantity(e) {
-    var $cartItem = $(e.target).closest(this.cartItemClass)
+    var $cartItem = $(e.target).closest(this.cartItemClass);
     var $cartItemSubtotal = $cartItem.find(this.cartItemSubtotalClass);
     var cartItemId = $cartItem.attr(this.cartItemIdAttr);
     var quantity = parseInt(e.target.value);

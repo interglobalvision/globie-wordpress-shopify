@@ -87,6 +87,7 @@ GWS = function () {
     this.priceWrapperClass = '.gws-product-price';
     this.quantitySelectClass = '.gws-quantity-select';
     this.variantSelectClass = '.gws-variant-select';
+    this.producePriceAttr = 'data-gws-price';
     this.productHandleAttr = 'data-gws-product-handle';
     this.productAvailableAttr = 'data-gws-available';
     this.postIdAttr = 'data-gws-post-id';
@@ -315,18 +316,14 @@ GWS = function () {
 
       if (variant) {
         if ($priceWrapper.length) {
-          this.setVariantPrice($priceWrapper, variant);
+          var price = variant.compareAtPrice ? variant.compareAtPrice : variant.price;
+          $priceWrapper.html(price);
+          $(element).attr(this.producePriceAttr, price);
         }
         if ($variantIdInput.length) {
           this.setVariantId($variantIdInput, variant);
         }
       }
-    } }, { key: 'setVariantPrice', value: function setVariantPrice(
-
-    $priceWrapper, variant) {
-      var price = variant.compareAtPrice ? variant.compareAtPrice : variant.price;
-
-      $priceWrapper.html(price);
     } }, { key: 'setVariantId', value: function setVariantId(
 
     $variantIdInput, variant) {
@@ -523,7 +520,6 @@ GWS = function () {
     } }, { key: 'updateSubtotal', value: function updateSubtotal(
 
     price) {
-      console.log(price);
       $(this.cartSubtotalSelector).text(price);
     } }, { key: 'bindCartInputs', value: function bindCartInputs()
 
