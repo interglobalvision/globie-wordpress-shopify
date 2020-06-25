@@ -78,11 +78,14 @@ GWS = function () {
     this.mobileThreshold = 601;
 
     this.fetchProductMeta = this.fetchProductMeta.bind(this);
+    this.updateActiveCurrency = this.updateActiveCurrency.bind(this);
 
     this.$cartCounter = $('.gws-cart-counter');
     this.$product = $('.gws-product');
     this.$addToCartButton = $('.gws-product-add');
+    this.$currencySelectHolder = $('.gws-currency-select-holder');
     this.checkoutIdCookieKey = 'gwsCheckoutId';
+    this.currencyCookieKey = 'gwsCurrency';
     this.variantIdInputClass = '.gws-variant-id';
     this.priceWrapperClass = '.gws-product-price';
     this.quantitySelectClass = '.gws-quantity-select';
@@ -125,7 +128,6 @@ GWS = function () {
     } }, { key: 'onReady', value: function onReady()
 
     {
-
       // Check shopify api data
       if (Shopify.domain !== null && Shopify.storefrontAccessToken !== null) {var _Shopify =
         Shopify,domain = _Shopify.domain,storefrontAccessToken = _Shopify.storefrontAccessToken;
@@ -136,7 +138,7 @@ GWS = function () {
           storefrontAccessToken: storefrontAccessToken });
 
 
-        this.initCheckout();
+        this.setInitialCurrency();
 
         if (this.$product.length) {// Archive products page
           this.initProducts();
@@ -156,26 +158,111 @@ GWS = function () {
     }
 
     /**
+       * Add currency select options
+       */ }, { key: 'buildCurrencySelect', value: function buildCurrencySelect()
+    {var _this = this;
+      if (this.$currencySelectHolder.length && Shopify.currencies !== null) {
+        // add select element
+        this.$currencySelectHolder.html('<select class="gws-currency-select"></select>');
+        this.$currencySelect = $('.gws-currency-select');
+
+        // add options to select element
+        Shopify.currencies.forEach(function (currency) {
+          _this.$currencySelect.append('<option value="' + currency.code + '">' + currency.code + '</option>');
+        });
+
+        // set select value
+        this.$currencySelect.val(this.activeCurrency);
+
+        // bind currency select change handler
+        this.$currencySelect.on('change', this.updateActiveCurrency);
+      }
+    }
+
+    /**
+       * Set initial currency
+       */ }, { key: 'setInitialCurrency', value: function setInitialCurrency()
+    {var _this2 = this;
+      // Get active currency from cookies
+      var cookieCurrency = _jsCookie2.default.get(this.currencyCookieKey);
+
+      if (cookieCurrency) {
+        this.activeCurrency = cookieCurrency;
+        this.initCheckout();
+        this.buildCurrencySelect();
+      } else {
+        this.client.shop.fetchInfo().then(function (shop) {
+          _this2.activeCurrency = shop.currencyCode;
+          _jsCookie2.default.set(_this2.currencyCookieKey, _this2.activeCurrency);
+          _this2.initCheckout();
+          _this2.buildCurrencySelect();
+        });
+      }
+    }
+
+    /**
+       * Update active currency
+       */ }, { key: 'updateActiveCurrency', value: function updateActiveCurrency()
+    {var _this3 = this;
+      this.activeCurrency = this.$currencySelect.val();
+
+      // set active currency in cookies
+      _jsCookie2.default.set(this.currencyCookieKey, this.activeCurrency);
+
+      if (this.checkout) {
+        var lineItems = [];
+
+        if (this.checkout.lineItems) {
+          this.checkout.lineItems.forEach(function (item, i) {
+            lineItems.push({
+              quantity: item.quantity,
+              variantId: item.variant.id });
+
+          });
+        }
+
+        // Create an empty checkout
+        this.client.checkout.create({
+          presentmentCurrencyCode: this.activeCurrency,
+          lineItems: lineItems }).
+
+        then(function (checkout) {
+          // Do something with the checkout
+          // console.log('EMPTY CHECKOUT CREATED', checkout);
+
+          // Save checkout in object
+          _this3.checkout = checkout;
+
+          _this3.updateCart(checkout);
+
+          // Save the shopifyCheckoutId in a cookie
+          _jsCookie2.default.set(_this3.checkoutIdCookieKey, checkout.id, { expires: 7 }); // Expires in 7 days
+        });
+      }
+      //console.log(this.checkout.lineItems[0].variant.id);
+    }
+
+    /**
        * Init the Shopify checkout, current or new
        */ }, { key: 'initCheckout', value: function initCheckout()
-    {var _this = this;
+    {var _this4 = this;
       // Get shopifyCheckoutId from cookies
-      var checkoutId = _jsCookie2.default.get(this.checkoutIdCookieKey);
+      this.checkoutId = _jsCookie2.default.get(this.checkoutIdCookieKey);
 
       // If shopifyCheckoutId already exists (means there was already a cart initiated before)
-      if (checkoutId) {
+      if (this.checkoutId) {
 
         // Fetch existing checkout by its checkoutId
-        this.client.checkout.fetch(checkoutId).
+        this.client.checkout.fetch(this.checkoutId).
         then(function (checkout) {
           // Do something with the checkout
           // console.log('EXISTING CHECKOUT', checkout);
 
           // Save the checkout in object
-          _this.checkout = checkout;
+          _this4.checkout = checkout;
 
           // Update cart display
-          _this.updateCart(checkout);
+          _this4.updateCart(checkout);
 
         }).catch(function (error) {
           console.log(error);
@@ -184,21 +271,23 @@ GWS = function () {
       } else {// Non existing checkout
 
         // Create an empty checkout
-        this.client.checkout.create().
+        this.client.checkout.create({
+          presentmentCurrencyCode: this.activeCurrency }).
+
         then(function (checkout) {
           // Do something with the checkout
           // console.log('EMPTY CHECKOUT CREATED', checkout);
 
           // Save checkout in object
-          _this.checkout = checkout;
+          _this4.checkout = checkout;
 
           // Save the shopifyCheckoutId in a cookie
-          _jsCookie2.default.set(_this.checkoutIdCookieKey, checkout.id, { expires: 7 }); // Expires in 7 days
+          _jsCookie2.default.set(_this4.checkoutIdCookieKey, checkout.id, { expires: 7 }); // Expires in 7 days
         });
       }
     } }, { key: 'fetchProductMeta', value: function fetchProductMeta(
 
-    index, element) {var _this2 = this;
+    index, element) {var _this5 = this;
       var productHandle = $(element).attr(this.productHandleAttr);
 
       if (!productHandle) {
@@ -209,21 +298,21 @@ GWS = function () {
       // Fetch data from shopify. Returns a promise
       this.client.product.fetchByHandle(productHandle).
       then(function (product) {
-        var productAvailable = _this2.setProductAvailability(element, product.variants);
+        var productAvailable = _this5.setProductAvailability(element, product.variants);
 
         if (productAvailable) {
-          _this2.updateProductVariant(element, product.variants[0]);
+          _this5.updateProductVariant(element, product.variants[0]);
         }
 
         var productInCart = localStorage.getItem(product.id) ? true : false;
-        _this2.updateProductInCartStatus(element, productInCart);
+        _this5.updateProductInCartStatus(element, productInCart);
 
         // Generate variation selector
         if (product.variants.length > 1) {
-          _this2.generateOptions(element, product.variants);
+          _this5.generateOptions(element, product.variants);
         }
 
-        _this2.$addToCartButton.on('click', _this2.handleAddToCart.bind(_this2, element, product));
+        _this5.$addToCartButton.on('click', _this5.handleAddToCart.bind(_this5, element, product));
       }).
       catch(function (error) {
         console.log(error);
@@ -247,7 +336,7 @@ GWS = function () {
     /**
        * Add item to Cart
        */ }, { key: 'handleAddToCart', value: function handleAddToCart(
-    element, product) {var _this3 = this;
+    element, product) {var _this6 = this;
       var itemsToAdd = this.getQuantityAndVariant(element, product.variants);
       var productInCart = this.getProductInCartStatus(element);
 
@@ -256,18 +345,18 @@ GWS = function () {
         this.client.checkout.addLineItems(this.checkout.id, [itemsToAdd]).
         then(function (checkout) {
           // Do something with the updated checkout
-          _this3.dispatchCartUpdateEvent('added', checkout.lineItems[0].variant);
+          _this6.dispatchCartUpdateEvent('added', checkout.lineItems[0].variant);
 
           // Update cart
-          _this3.updateCart(checkout);
+          _this6.updateCart(checkout);
 
           // Add handle to localStorage
-          var postId = $(element).attr(_this3.postIdAttr);
+          var postId = $(element).attr(_this6.postIdAttr);
           if (postId) {
             localStorage.setItem(product.id, postId);
           }
 
-          _this3.updateProductInCartStatus(element, true);
+          _this6.updateProductInCartStatus(element, true);
         }).
         catch(function (error) {
           console.log(error);
@@ -441,7 +530,8 @@ GWS = function () {
        * @param {object} checkout - The updated shopify checkout object
        */ }, { key: 'updateCart', value: function updateCart(
     checkout) {var
-      lineItems = checkout.lineItems,webUrl = checkout.webUrl,subtotalPrice = checkout.subtotalPrice;
+      lineItems = checkout.lineItems,webUrl = checkout.webUrl,paymentDue = checkout.paymentDue;
+      console.log(checkout);
 
       // Update cart items in header
       this.$cartCounter.html(lineItems.length);
@@ -456,7 +546,7 @@ GWS = function () {
 
           this.generateCartItemsRows(lineItems);
           this.bindCartInputs(lineItems);
-          this.updateSubtotal(subtotalPrice);
+          this.updateSubtotal(paymentDue);
           this.bindRemoveItems();
 
           $(this.cartCheckoutSelector).attr('href', webUrl);
@@ -470,34 +560,34 @@ GWS = function () {
        * Generate cart items rows markup
        * @param {object} items - Shopify items object
        */ }, { key: 'generateCartItemsRows', value: function generateCartItemsRows(
-    items) {var _this4 = this;
+    items) {var _this7 = this;
       if (items.length) {
 
         items.forEach(function (item) {
           if (!item.variant.available) {
             // Item sold out
-            _this4.removeCartItems(item.id);
+            _this7.removeCartItems(item.id);
             return;
           }
 
           // Get item markup and append as new element
-          var $cartItem = $(_this4.cartItemHtml);
-          _this4.$cartItemsContainer.append($cartItem);
+          var $cartItem = $(_this7.cartItemHtml);
+          _this7.$cartItemsContainer.append($cartItem);
 
           // Handle product id and post id
           var productId = item.variant.product.id;
           var postId = localStorage.getItem(productId);
-          $cartItem.attr(_this4.productIdAttr, item.variant.product.id);
+          $cartItem.attr(_this7.productIdAttr, item.variant.product.id);
 
           // Set item ID to data attr
-          $cartItem.attr(_this4.cartItemIdAttr, item.id);
+          $cartItem.attr(_this7.cartItemIdAttr, item.id);
 
           // Declare item elements
-          var $cartThumb = $cartItem.find(_this4.cartThumbClass);
-          var $cartTitle = $cartItem.find(_this4.cartTitleClass);
-          var $cartVariantTitle = $cartItem.find(_this4.cartVariantTitleClass);
-          var $cartQuantity = $cartItem.find(_this4.cartQuantityClass);
-          var $cartSubtotal = $cartItem.find(_this4.cartItemSubtotalClass);
+          var $cartThumb = $cartItem.find(_this7.cartThumbClass);
+          var $cartTitle = $cartItem.find(_this7.cartTitleClass);
+          var $cartVariantTitle = $cartItem.find(_this7.cartVariantTitleClass);
+          var $cartQuantity = $cartItem.find(_this7.cartQuantityClass);
+          var $cartSubtotal = $cartItem.find(_this7.cartItemSubtotalClass);
 
           // Define item image and title
           var imageSrc = item.variant.image !== null ? item.variant.image.src : '';
@@ -528,7 +618,7 @@ GWS = function () {
       $(this.cartAttributeClass).on('change', this.handleCartAttributeUpdate);
     } }, { key: 'handleCartQuantity', value: function handleCartQuantity(
 
-    e) {var _this5 = this;
+    e) {var _this8 = this;
       var $cartItem = $(e.target).closest(this.cartItemClass);
       var $cartItemSubtotal = $cartItem.find(this.cartItemSubtotalClass);
       var cartItemId = $cartItem.attr(this.cartItemIdAttr);
@@ -542,7 +632,7 @@ GWS = function () {
           return item.id === cartItemId;
         });
         $cartItemSubtotal.text(item.quantity * item.variant.price);
-        _this5.updateSubtotal(checkout.subtotalPrice);
+        _this8.updateSubtotal(checkout.paymentDue);
       });
     } }, { key: 'handleCartAttributeUpdate', value: function handleCartAttributeUpdate(
 
@@ -569,10 +659,10 @@ GWS = function () {
       localStorage.removeItem(productId);
     } }, { key: 'removeCartItems', value: function removeCartItems(
 
-    cartItemId) {var _this6 = this;
+    cartItemId) {var _this9 = this;
       this.client.checkout.removeLineItems(this.checkout.id, [cartItemId]).then(function (checkout) {
-        _this6.updateCart(checkout);
-        _this6.dispatchCartUpdateEvent('removed');
+        _this9.updateCart(checkout);
+        _this9.dispatchCartUpdateEvent('removed');
       });
     } }, { key: 'dispatchCartUpdateEvent', value: function dispatchCartUpdateEvent(
 

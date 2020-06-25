@@ -8,11 +8,14 @@ class GWS {
     this.mobileThreshold = 601;
 
     this.fetchProductMeta = this.fetchProductMeta.bind(this);
+    this.updateActiveCurrency = this.updateActiveCurrency.bind(this);
 
     this.$cartCounter = $('.gws-cart-counter');
     this.$product = $('.gws-product');
     this.$addToCartButton = $('.gws-product-add');
+    this.$currencySelectHolder = $('.gws-currency-select-holder');
     this.checkoutIdCookieKey = 'gwsCheckoutId';
+    this.currencyCookieKey = 'gwsCurrency'
     this.variantIdInputClass = '.gws-variant-id';
     this.priceWrapperClass = '.gws-product-price';
     this.quantitySelectClass = '.gws-quantity-select';
@@ -55,7 +58,6 @@ class GWS {
   }
 
   onReady() {
-
     // Check shopify api data
     if(Shopify.domain !== null && Shopify.storefrontAccessToken !== null) {
       const { domain, storefrontAccessToken } = Shopify;
@@ -66,7 +68,7 @@ class GWS {
         storefrontAccessToken,
       });
 
-      this.initCheckout();
+      this.setInitialCurrency();
 
       if (this.$product.length) { // Archive products page
         this.initProducts();
@@ -86,17 +88,102 @@ class GWS {
   }
 
   /**
+   * Add currency select options
+   */
+  buildCurrencySelect() {
+    if (this.$currencySelectHolder.length && Shopify.currencies !== null) {
+      // add select element
+      this.$currencySelectHolder.html('<select class="gws-currency-select"></select>');
+      this.$currencySelect = $('.gws-currency-select');
+
+      // add options to select element
+      Shopify.currencies.forEach(currency => {
+        this.$currencySelect.append('<option value="' + currency.code + '">' + currency.code + '</option>')
+      });
+
+      // set select value
+      this.$currencySelect.val(this.activeCurrency);
+
+      // bind currency select change handler
+      this.$currencySelect.on('change', this.updateActiveCurrency);
+    }
+  }
+
+  /**
+   * Set initial currency
+   */
+  setInitialCurrency() {
+    // Get active currency from cookies
+    let cookieCurrency = Cookies.get(this.currencyCookieKey);
+
+    if (cookieCurrency) {
+      this.activeCurrency = cookieCurrency;
+      this.initCheckout();
+      this.buildCurrencySelect();
+    } else {
+      this.client.shop.fetchInfo().then((shop) => {
+        this.activeCurrency = shop.currencyCode;
+        Cookies.set(this.currencyCookieKey, this.activeCurrency);
+        this.initCheckout();
+        this.buildCurrencySelect();
+      });
+    }
+  }
+
+  /**
+   * Update active currency
+   */
+  updateActiveCurrency() {
+    this.activeCurrency = this.$currencySelect.val();
+
+    // set active currency in cookies
+    Cookies.set(this.currencyCookieKey, this.activeCurrency);
+
+    if (this.checkout) {
+      let lineItems = [];
+
+      if (this.checkout.lineItems) {
+        this.checkout.lineItems.forEach((item, i) => {
+          lineItems.push({
+            quantity: item.quantity,
+            variantId: item.variant.id
+          });
+        });
+      }
+
+      // Create an empty checkout
+      this.client.checkout.create({
+        presentmentCurrencyCode: this.activeCurrency,
+        lineItems
+      })
+        .then((checkout) => {
+          // Do something with the checkout
+          // console.log('EMPTY CHECKOUT CREATED', checkout);
+
+          // Save checkout in object
+          this.checkout = checkout;
+
+          this.updateCart(checkout);
+
+          // Save the shopifyCheckoutId in a cookie
+          Cookies.set(this.checkoutIdCookieKey, checkout.id, { expires: 7 }); // Expires in 7 days
+        });
+    }
+    //console.log(this.checkout.lineItems[0].variant.id);
+  }
+
+  /**
    * Init the Shopify checkout, current or new
    */
   initCheckout() {
     // Get shopifyCheckoutId from cookies
-    const checkoutId = Cookies.get(this.checkoutIdCookieKey);
+    this.checkoutId = Cookies.get(this.checkoutIdCookieKey);
 
     // If shopifyCheckoutId already exists (means there was already a cart initiated before)
-    if (checkoutId) {
+    if (this.checkoutId) {
 
       // Fetch existing checkout by its checkoutId
-      this.client.checkout.fetch(checkoutId)
+      this.client.checkout.fetch(this.checkoutId)
         .then(checkout => {
           // Do something with the checkout
           // console.log('EXISTING CHECKOUT', checkout);
@@ -114,7 +201,9 @@ class GWS {
     } else { // Non existing checkout
 
       // Create an empty checkout
-      this.client.checkout.create()
+      this.client.checkout.create({
+        presentmentCurrencyCode: this.activeCurrency
+      })
         .then((checkout) => {
           // Do something with the checkout
           // console.log('EMPTY CHECKOUT CREATED', checkout);
@@ -371,7 +460,8 @@ class GWS {
    * @param {object} checkout - The updated shopify checkout object
    */
   updateCart(checkout) {
-    const { lineItems, webUrl, subtotalPrice } = checkout;
+    const { lineItems, webUrl, paymentDue } = checkout;
+    console.log(checkout)
 
     // Update cart items in header
     this.$cartCounter.html(lineItems.length);
@@ -386,7 +476,7 @@ class GWS {
 
         this.generateCartItemsRows(lineItems);
         this.bindCartInputs(lineItems);
-        this.updateSubtotal(subtotalPrice);
+        this.updateSubtotal(paymentDue);
         this.bindRemoveItems();
 
         $(this.cartCheckoutSelector).attr('href', webUrl);
@@ -472,7 +562,7 @@ class GWS {
         return item.id === cartItemId;
       });
       $cartItemSubtotal.text(item.quantity * item.variant.price);
-      this.updateSubtotal(checkout.subtotalPrice);
+      this.updateSubtotal(checkout.paymentDue);
     });
   }
 
