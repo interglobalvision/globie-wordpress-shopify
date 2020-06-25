@@ -132,6 +132,36 @@ function gws_register_settings() {
     'type'    => 'text',
   ) );
 
+  $shop_options->add_field( array(
+    'id'          => $prefix . 'shopify_currencies_title',
+    'type'        => 'title',
+    'name'     => esc_html__( 'Currencies', 'cmb2' ),
+  ) );
+
+  $currencies_group_id = $shop_options->add_field( array(
+    'id'          => $prefix . 'shopify_currencies',
+    'type'        => 'group',
+    'desc'    => esc_html__( 'If using additional currencies through the Shopify Payments gateway, please add all currencies here, including the default currency first', 'igv' ),
+    'options'     => array(
+      'group_title'    => esc_html__( 'Currency {#}', 'cmb2' ), // {#} gets replaced by row number
+      'add_button'     => esc_html__( 'Add Another Currency', 'cmb2' ),
+      'remove_button'  => esc_html__( 'Remove Currency', 'cmb2' ),
+      'sortable'       => true,
+    ),
+  ) );
+
+  $shop_options->add_group_field( $currencies_group_id, array(
+    'name' => esc_html__( 'Code', 'cmb2' ),
+    'id'   => 'code',
+    'type'    => 'text_small',
+  ) );
+
+  $shop_options->add_group_field( $currencies_group_id, array(
+    'name' => esc_html__( 'Name', 'cmb2' ),
+    'id'   => 'name',
+    'type'    => 'text',
+  ) );
+
 }
 
 function gws_enqueue_scripts() {
@@ -142,12 +172,14 @@ function gws_enqueue_scripts() {
   $shopify_domain = gws_get_option('_gws_shopify_domain');
   $shopify_token = gws_get_option('_gws_shopify_token');
   $shopify_item_slug = gws_get_option('_gws_shopify_item_slug');
+  $shopify_currencies = gws_get_option('_gws_shopify_currencies');
 
   $javascriptVars = array(
     'domain' => !empty($shopify_domain) ? $shopify_domain : null,
     'storefrontAccessToken' => !empty($shopify_token) ? $shopify_token : null,
     'siteUrl' => home_url(),
     'itemSlug' => !empty($shopify_item_slug) ? $shopify_item_slug : null,
+    'currencies' => !empty($shopify_currencies) ? $shopify_currencies : null,
   );
 
   wp_localize_script( 'gws_scripts', 'Shopify', $javascriptVars );
