@@ -15,7 +15,7 @@ class GWS {
     this.$addToCartButton = $('.gws-product-add');
     this.$currencySelectHolder = $('.gws-currency-select-holder');
     this.checkoutIdCookieKey = 'gwsCheckoutId';
-    this.currencyCookieKey = 'gwsCurrency'
+    this.currencyCookieKey = 'gwsCurrency';
     this.variantIdInputClass = '.gws-variant-id';
     this.priceWrapperClass = '.gws-product-price';
     this.quantitySelectClass = '.gws-quantity-select';
@@ -98,7 +98,7 @@ class GWS {
 
       // add options to select element
       Shopify.currencies.forEach(currency => {
-        this.$currencySelect.append('<option value="' + currency.code + '">' + currency.code + '</option>')
+        this.$currencySelect.append('<option value="' + currency.code + '">' + currency.code + '</option>');
       });
 
       // set select value
@@ -143,7 +143,7 @@ class GWS {
       let lineItems = [];
 
       if (this.checkout.lineItems) {
-        this.checkout.lineItems.forEach((item, i) => {
+        this.checkout.lineItems.forEach((item) => {
           lineItems.push({
             quantity: item.quantity,
             variantId: item.variant.id
@@ -461,7 +461,7 @@ class GWS {
    */
   updateCart(checkout) {
     const { lineItems, webUrl, paymentDue } = checkout;
-    console.log(checkout)
+    console.log(checkout);
 
     // Update cart items in header
     this.$cartCounter.html(lineItems.length);

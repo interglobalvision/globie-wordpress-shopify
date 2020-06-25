@@ -213,7 +213,7 @@ GWS = function () {
         var lineItems = [];
 
         if (this.checkout.lineItems) {
-          this.checkout.lineItems.forEach(function (item, i) {
+          this.checkout.lineItems.forEach(function (item) {
             lineItems.push({
               quantity: item.quantity,
               variantId: item.variant.id });
