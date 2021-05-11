@@ -188,11 +188,20 @@ class GWS {
           // Do something with the checkout
           // console.log('EXISTING CHECKOUT', checkout);
 
-          // Save the checkout in object
-          this.checkout = checkout;
+          if (checkout.completedAt) {
+            // Create an empty checkout
+            console.log('checkout completed');
+            Cookies.remove(this.checkoutIdCookieKey);
+            this.clearLocalStorageItems();
+            this.createEmptyCheckout();
 
-          // Update cart display
-          this.updateCart(checkout);
+          } else {
+            // Save the checkout in object
+            this.checkout = checkout;
+
+            // Update cart display
+            this.updateCart(checkout);
+          }
 
         }).catch( error => {
           console.log(error);
@@ -201,20 +210,33 @@ class GWS {
     } else { // Non existing checkout
 
       // Create an empty checkout
-      this.client.checkout.create({
-        presentmentCurrencyCode: this.activeCurrency
-      })
-        .then((checkout) => {
-          // Do something with the checkout
-          // console.log('EMPTY CHECKOUT CREATED', checkout);
-
-          // Save checkout in object
-          this.checkout = checkout;
-
-          // Save the shopifyCheckoutId in a cookie
-          Cookies.set(this.checkoutIdCookieKey, checkout.id, { expires: 7 }); // Expires in 7 days
-        });
+      this.createEmptyCheckout();
+      
     }
+  }
+
+  clearLocalStorageItems() {
+    Object.keys(localStorage).forEach(key => {
+      if (key !== 'WP_DATA_USER_1' && key !== 'cookies-accepted') {
+        localStorage.removeItem(key)
+      }
+    });
+  }
+
+  createEmptyCheckout() {
+    this.client.checkout.create({
+      presentmentCurrencyCode: this.activeCurrency
+    })
+      .then((checkout) => {
+        // Do something with the checkout
+        console.log('EMPTY CHECKOUT CREATED', checkout);
+
+        // Save checkout in object
+        this.checkout = checkout;
+
+        // Save the shopifyCheckoutId in a cookie
+        Cookies.set(this.checkoutIdCookieKey, checkout.id, { expires: 7 }); // Expires in 7 days
+      });
   }
 
   fetchProductMeta(index, element) {
